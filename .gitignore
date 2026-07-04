@@ -1,0 +1,61 @@
+# Local environment files
+.env
+.env.*
+*.local.json
+
+# Env check local results
+env/*.local.json
+env/ENV_CHECK_RESULT.json
+env/ENV_CHECK_RESULT.*.json
+!env/ENV_CHECK_RESULT.example.json
+
+# Audited source projects
+projects/*
+!projects/README.md
+
+# Audit run outputs
+runs/*
+!runs/README.md
+
+# Delivery outputs
+deliveries/*
+!deliveries/README.md
+
+# Runtime temp and cache
+tmp/
+.cache/
+
+# Tool raw outputs and caches
+*.sarif
+*.log
+*.tmp
+*.cache
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Java / Gradle / Maven
+.gradle/
+target/
+build/
+
+# Go
+bin/
+coverage.out
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.claude/
+.codex/

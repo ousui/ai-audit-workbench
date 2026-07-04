@@ -78,6 +78,17 @@ def command(tool_id: str, profile: str, output_dir: str) -> list[dict[str, Any]]
     return templates.get((tool_id, profile), [])
 
 
+def tool_network_allowed(authorization: dict[str, Any]) -> bool:
+    """Tool-network policy is intentionally separate from AI-agent network authorization.
+
+    NETWORK_AUTHORIZATION is kept as an AI/agent authorization record. External security tools are allowed to use the network by default because their online profiles are part of the audit toolchain.
+    A future personal config can add an explicit tool_network_policy=deny switch.
+    """
+    if "tool_network" in authorization:
+        return bool(authorization.get("tool_network", {}).get("allowed", True))
+    return True
+
+
 def build_plan(run_root: Path) -> dict[str, Any]:
     run_meta = load_json(run_root / "meta" / "RUN_METADATA.json")
     project = load_json(run_root / "meta" / "PROJECT_PROFILE.json")
@@ -91,7 +102,7 @@ def build_plan(run_root: Path) -> dict[str, Any]:
 
     project_root = Path(project["project_path"]["resolved"])
     base_output = run_root / "evidence" / "tool-outputs"
-    online_allowed = bool(authorization.get("network", {}).get("allowed") and authorization.get("online_rules", {}).get("allowed"))
+    online_allowed = tool_network_allowed(authorization)
 
     items: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []
@@ -118,9 +129,10 @@ def build_plan(run_root: Path) -> dict[str, Any]:
                     "tool_id": tool_id,
                     "profile": profile,
                     "status": "skipped_by_policy",
-                    "reason": "online_profile_requires_network_authorization",
+                    "reason": "online_profile_requires_tool_network_policy",
                     "network_required": True,
                     "authorization_status": authorization.get("authorization_mode", "deny"),
+                    "tool_network_policy": "deny",
                     "commands": commands,
                     "cwd": str(project_root),
                     "output_dir": output_dir_rel,
@@ -134,6 +146,7 @@ def build_plan(run_root: Path) -> dict[str, Any]:
                 "reason": "ready",
                 "network_required": profile == "online",
                 "authorization_status": authorization.get("authorization_mode", "deny"),
+                "tool_network_policy": "allow" if online_allowed else "deny",
                 "commands": commands,
                 "cwd": str(project_root),
                 "output_dir": output_dir_rel,
@@ -145,7 +158,7 @@ def build_plan(run_root: Path) -> dict[str, Any]:
     planned = [x for x in items if x["status"] == "planned"]
     skipped_by_policy = [x for x in items if x["status"] == "skipped_by_policy"]
     return {
-        "schema_version": "tool-execution-plan-0.1.0",
+        "schema_version": "tool-execution-plan-0.2.0",
         "run": {
             "run_id": run_meta.get("run_id"),
             "project_key": run_meta.get("project_key"),
@@ -157,9 +170,10 @@ def build_plan(run_root: Path) -> dict[str, Any]:
             "git": project.get("git", {}),
         },
         "authorization": {
-            "authorization_mode": authorization.get("authorization_mode", "deny"),
-            "online_allowed": online_allowed,
+            "agent_network_authorization_mode": authorization.get("authorization_mode", "deny"),
+            "tool_online_allowed": online_allowed,
             "authorization_ref": rel(authorization_path),
+            "note": "Agent network authorization and external-tool network usage are separate concerns. Tools are allowed by default unless an explicit tool network policy denies them.",
         },
         "policy": {
             "default_profiles": ["offline", "online"],
@@ -186,7 +200,7 @@ def render_md(plan: dict[str, Any]) -> str:
         f"- Planned items: {plan['summary']['planned_items']}",
         f"- Skipped by policy: {plan['summary']['skipped_by_policy_items']}",
         f"- Skipped missing tools: {plan['summary']['skipped_missing_tools']}",
-        f"- Online allowed: {plan['authorization']['online_allowed']}", "",
+        f"- Tool online allowed: {plan['authorization']['tool_online_allowed']}", "",
         "## Items", "",
         "| Tool | Profile | Status | Network | Commands |",
         "|---|---|---|---:|---:|",
@@ -207,7 +221,7 @@ def print_summary(plan: dict[str, Any]) -> None:
     print(f"  planned_items: {s['planned_items']}")
     print(f"  skipped_by_policy_items: {s['skipped_by_policy_items']}")
     print(f"  skipped_missing_tools: {s['skipped_missing_tools']}")
-    print(f"  online_allowed: {plan['authorization']['online_allowed']}")
+    print(f"  tool_online_allowed: {plan['authorization']['tool_online_allowed']}")
 
 
 def main(argv: list[str]) -> int:

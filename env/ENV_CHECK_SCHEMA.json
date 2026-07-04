@@ -1,0 +1,743 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bdg.local/audit-workbench/env/ENV_CHECK_SCHEMA.json",
+  "title": "AI Audit Workbench Env Check Result",
+  "description": "Schema for local environment check results. This schema defines the structure of env-check output. Local result files may contain machine-specific paths and must not be committed to Git or included in business-facing reports.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "checked_at",
+    "workbench",
+    "host",
+    "summary",
+    "tools"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "env-check-0.1.0"
+    },
+    "checked_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "workbench": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tool_matrix_version",
+        "tool_matrix_path",
+        "env_check_mode"
+      ],
+      "properties": {
+        "tool_matrix_version": {
+          "type": "string"
+        },
+        "tool_matrix_path": {
+          "type": "string"
+        },
+        "env_check_mode": {
+          "type": "string",
+          "enum": [
+            "full",
+            "core_only",
+            "stack_partial",
+            "debug"
+          ]
+        },
+        "debug_enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "arch",
+        "shell",
+        "path_separator",
+        "home_path_record_policy"
+      ],
+      "properties": {
+        "os": {
+          "type": "string",
+          "enum": [
+            "macos",
+            "linux",
+            "windows",
+            "wsl",
+            "unknown"
+          ]
+        },
+        "os_version": {
+          "type": "string"
+        },
+        "arch": {
+          "type": "string",
+          "enum": [
+            "x86_64",
+            "arm64",
+            "aarch64",
+            "x86",
+            "unknown"
+          ]
+        },
+        "shell": {
+          "type": "string"
+        },
+        "path_separator": {
+          "type": "string",
+          "enum": [
+            ":",
+            ";"
+          ]
+        },
+        "path_entries_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "home_path_record_policy": {
+          "type": "string",
+          "enum": [
+            "redacted",
+            "local_only",
+            "not_recorded"
+          ]
+        },
+        "runtime_context": {
+          "type": "string",
+          "enum": [
+            "system",
+            "user",
+            "sandbox",
+            "container",
+            "wsl",
+            "unknown"
+          ],
+          "default": "unknown"
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "core_ready",
+        "available_tools",
+        "missing_tools",
+        "blocked_tools",
+        "skipped_tools"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "usable",
+            "degraded",
+            "blocked",
+            "unknown"
+          ]
+        },
+        "core_ready": {
+          "type": "boolean"
+        },
+        "available_tools": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missing_tools": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocked_tools": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skipped_tools": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "error_tools": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0
+        },
+        "required_for_workbench_missing": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "recommended_missing": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "confirmation_items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/confirmation_item"
+          },
+          "default": []
+        }
+      }
+    },
+    "tools": {
+      "type": "object",
+      "description": "Tool detection results keyed by tool id from TOOL_MATRIX.yaml.",
+      "additionalProperties": {
+        "$ref": "#/$defs/tool_result"
+      }
+    },
+    "stacks": {
+      "type": "object",
+      "description": "Optional stack readiness summary. A stack can be usable, degraded, blocked, skipped, or unknown.",
+      "additionalProperties": {
+        "$ref": "#/$defs/stack_result"
+      },
+      "default": {}
+    },
+    "permission_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "network_default_allowed": {
+          "type": "boolean",
+          "default": false
+        },
+        "write_project_default_allowed": {
+          "type": "boolean",
+          "default": false
+        },
+        "start_service_default_allowed": {
+          "type": "boolean",
+          "default": false
+        },
+        "dynamic_request_default_allowed": {
+          "type": "boolean",
+          "default": false
+        },
+        "reverse_artifact_default_allowed": {
+          "type": "boolean",
+          "default": false
+        },
+        "upload_external_default_allowed": {
+          "type": "boolean",
+          "default": false
+        },
+        "write_external_default_allowed": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "default": {}
+    },
+    "redaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "local_paths_redacted": {
+          "type": "boolean",
+          "default": true
+        },
+        "secrets_redacted": {
+          "type": "boolean",
+          "default": true
+        },
+        "redaction_warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      },
+      "default": {}
+    }
+  },
+  "$defs": {
+    "tool_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tool_id",
+        "display_name",
+        "category",
+        "required_level",
+        "status",
+        "missing_policy"
+      ],
+      "properties": {
+        "tool_id": {
+          "type": "string"
+        },
+        "display_name": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "core",
+            "common_static",
+            "sdk",
+            "security",
+            "dast",
+            "reverse",
+            "quality",
+            "other"
+          ]
+        },
+        "required_level": {
+          "type": "string",
+          "enum": [
+            "required_for_workbench",
+            "required_for_stack",
+            "recommended_for_static",
+            "optional",
+            "future_stage"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "available",
+            "available_multiple",
+            "missing",
+            "blocked",
+            "skipped",
+            "error",
+            "not_applicable",
+            "unknown"
+          ]
+        },
+        "missing_policy": {
+          "type": "string",
+          "enum": [
+            "block_workbench",
+            "block_stack_scan",
+            "record_missing_not_blocking",
+            "future_stage_not_blocking",
+            "not_applicable"
+          ]
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "version_ok": {
+          "type": [
+            "boolean",
+            "null"
+          ],
+          "default": null
+        },
+        "resolved_command": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The command name that can be invoked, for example git, rg, python3, or python."
+        },
+        "resolved_path": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Local resolved path. This may contain local machine paths and must remain local."
+        },
+        "resolved_path_redacted": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Redacted path safe for internal workflow summaries."
+        },
+        "install_scope": {
+          "type": "string",
+          "enum": [
+            "system",
+            "user",
+            "sandbox",
+            "container",
+            "wsl",
+            "unknown",
+            "not_installed"
+          ],
+          "default": "unknown"
+        },
+        "manager": {
+          "type": "string",
+          "enum": [
+            "system",
+            "brew",
+            "apt",
+            "dnf",
+            "yum",
+            "pacman",
+            "winget",
+            "choco",
+            "scoop",
+            "mise",
+            "asdf",
+            "sdkman",
+            "nvm",
+            "pyenv",
+            "pip",
+            "pipx",
+            "npm",
+            "pnpm",
+            "yarn",
+            "go_install",
+            "manual",
+            "docker",
+            "unknown",
+            "not_installed"
+          ],
+          "default": "unknown"
+        },
+        "instances": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tool_instance"
+          },
+          "default": []
+        },
+        "active_instance_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "detection_records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/detection_record"
+          },
+          "default": []
+        },
+        "permissions": {
+          "$ref": "#/$defs/tool_permissions"
+        },
+        "missing_impact": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "blocked_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "skipped_reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "install_recommendation_ref": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "Reference to INSTALL_GUIDE.md section or future install guide section."
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    },
+    "tool_instance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "instance_id",
+        "command",
+        "path"
+      ],
+      "properties": {
+        "instance_id": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "path_redacted": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "manager": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "install_scope": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "is_active": {
+          "type": "boolean",
+          "default": false
+        },
+        "extra": {
+          "type": "object",
+          "additionalProperties": true,
+          "default": {}
+        }
+      }
+    },
+    "detection_record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command",
+        "exit_code",
+        "status"
+      ],
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "command_redacted": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "exit_code": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "success",
+            "failed",
+            "timeout",
+            "skipped",
+            "blocked"
+          ]
+        },
+        "stdout_summary": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "stderr_summary": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "duration_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        }
+      }
+    },
+    "tool_permissions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "read_project": {
+          "type": "boolean",
+          "default": true
+        },
+        "write_project": {
+          "type": "boolean",
+          "default": false
+        },
+        "write_run_output": {
+          "type": "boolean",
+          "default": true
+        },
+        "write_cache": {
+          "type": "boolean",
+          "default": true
+        },
+        "network": {
+          "type": "boolean",
+          "default": false
+        },
+        "start_service": {
+          "type": "boolean",
+          "default": false
+        },
+        "dynamic_request": {
+          "type": "boolean",
+          "default": false
+        },
+        "reverse_artifact": {
+          "type": "boolean",
+          "default": false
+        },
+        "upload_external": {
+          "type": "boolean",
+          "default": false
+        },
+        "write_external": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "default": {}
+    },
+    "stack_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "stack_id",
+        "status"
+      ],
+      "properties": {
+        "stack_id": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "usable",
+            "degraded",
+            "blocked",
+            "skipped",
+            "unknown"
+          ]
+        },
+        "required_tools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "available_required_tools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "missing_required_tools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "recommended_tools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "missing_recommended_tools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "impact": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "confirmation_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item_id",
+        "type",
+        "message"
+      ],
+      "properties": {
+        "item_id": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "missing_core_tool",
+            "missing_stack_tool",
+            "network_required",
+            "permission_required",
+            "path_redaction_warning",
+            "version_conflict",
+            "multiple_instances",
+            "unknown"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "affected_tools": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "recommended_action": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

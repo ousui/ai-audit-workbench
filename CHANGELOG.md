@@ -84,6 +84,7 @@
 - 明确交付阶段只能基于已合并结果渲染报告和整改追踪表。
 - 增加 debug 模式设计，作为工作台流程观察、留痕、调试和复盘机制；debug 产物仅用于工作台改进，不进入业务报告，不扩大工具权限，不替代审计结论。
 - 增加 core 工具安装指南，覆盖 git、ripgrep、python3、bash、find、grep、sed、awk、jq、tar，并明确 macOS、Linux、Windows 的基础安装建议与缺失处理策略。
+- 增加 env-check 结果 JSON Schema，用于约束本机环境检测结果结构，覆盖主机信息、工具检测摘要、工具实例、多版本 SDK、缺失影响和权限边界。
 
 ### Notes
 

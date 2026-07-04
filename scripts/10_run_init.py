@@ -31,6 +31,41 @@ RUN_SUBDIRS = [
     "tmp",
 ]
 
+AUTHORIZATION_PROFILES = {
+    "deny": {
+        "network_allowed": False,
+        "online_rules_allowed": False,
+        "external_tool_update_allowed": False,
+        "remote_rule_sources_allowed": [],
+    },
+    "once": {
+        "network_allowed": True,
+        "online_rules_allowed": True,
+        "external_tool_update_allowed": True,
+        "remote_rule_sources_allowed": [
+            "semgrep_registry",
+            "trivy_db",
+            "osv",
+            "npm_audit",
+            "govuln_db",
+            "retirejs_db",
+        ],
+    },
+    "always": {
+        "network_allowed": True,
+        "online_rules_allowed": True,
+        "external_tool_update_allowed": True,
+        "remote_rule_sources_allowed": [
+            "semgrep_registry",
+            "trivy_db",
+            "osv",
+            "npm_audit",
+            "govuln_db",
+            "retirejs_db",
+        ],
+    },
+}
+
 
 def now_local() -> _dt.datetime:
     return _dt.datetime.now(_dt.timezone.utc).astimezone()
@@ -87,6 +122,15 @@ def path_display(path: Path) -> dict[str, Any]:
         "resolved": str(resolved),
         "relative_to_workbench": safe_relative(resolved, WORKBENCH_ROOT),
     }
+
+
+def resolve_output_root(project_path: Path, output_root: str, workspace_mode: str) -> Path:
+    raw = Path(output_root).expanduser()
+    if raw.is_absolute():
+        return raw.resolve()
+    if workspace_mode == "project":
+        return (project_path / raw).resolve()
+    return (WORKBENCH_ROOT / raw).resolve()
 
 
 def read_git_info(project_path: Path) -> dict[str, Any]:
@@ -150,8 +194,8 @@ def choose_project_key(project_path: Path, project_code: str | None, project_nam
     return slugify(project_path.name, default="project")
 
 
-def next_run_root(project_key: str, audit_mode: str, round_label: str, requested_run_id: str | None) -> tuple[str, Path]:
-    project_runs_root = WORKBENCH_ROOT / "runs" / project_key
+def next_run_root(output_root: Path, project_key: str, audit_mode: str, round_label: str, requested_run_id: str | None) -> tuple[str, Path]:
+    project_runs_root = output_root / project_key
     project_runs_root.mkdir(parents=True, exist_ok=True)
 
     if requested_run_id:
@@ -182,7 +226,39 @@ def write_json(path: Path, data: dict[str, Any]) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
-def write_run_readme(path: Path, metadata: dict[str, Any]) -> None:
+def build_authorization(mode: str, workspace_mode: str) -> dict[str, Any]:
+    profile = AUTHORIZATION_PROFILES[mode]
+    return {
+        "schema_version": "authorization-0.1.0",
+        "authorization_mode": mode,
+        "confirmed_at": now_iso(),
+        "confirmed_by": "run-init-argument",
+        "workspace_mode": workspace_mode,
+        "network": {
+            "allowed": profile["network_allowed"],
+            "scope": ["remote_rule_fetch", "vulnerability_db_update", "package_registry_audit"],
+        },
+        "online_rules": {
+            "allowed": profile["online_rules_allowed"],
+            "default_profile_behavior": "run_offline_and_online_when_allowed",
+            "remote_rule_sources_allowed": profile["remote_rule_sources_allowed"],
+        },
+        "external_tool_update": {
+            "allowed": profile["external_tool_update_allowed"],
+            "notes": ["Only tool-managed rule/database updates are covered. Arbitrary upload or write-back remains denied."],
+        },
+        "denied": {
+            "write_project_source": True,
+            "start_service": True,
+            "dynamic_request": True,
+            "reverse_artifact": True,
+            "upload_external": True,
+            "write_external": True,
+        },
+    }
+
+
+def write_run_readme(path: Path, metadata: dict[str, Any], authorization: dict[str, Any]) -> None:
     text = f"""# Audit Run
 
 This directory contains one AI Audit Workbench run.
@@ -194,6 +270,14 @@ This directory contains one AI Audit Workbench run.
 - Audit mode: `{metadata["audit_mode"]}`
 - Round: `{metadata["round"]}`
 - Created at: `{metadata["created_at"]}`
+- Workspace mode: `{metadata["workspace_mode"]}`
+- Output root: `{metadata["output_root"]}`
+
+## Authorization
+
+- Network authorization mode: `{authorization["authorization_mode"]}`
+- Online rules allowed: `{authorization["online_rules"]["allowed"]}`
+- Network allowed: `{authorization["network"]["allowed"]}`
 
 ## Boundaries
 
@@ -213,7 +297,10 @@ def build_metadata(
     debug_level: str,
     run_id: str,
     run_root: Path,
+    output_root: Path,
+    workspace_mode: str,
     git_info: dict[str, Any],
+    authorization: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     project_rel = safe_relative(project_path.resolve(), WORKBENCH_ROOT)
     project_key = run_root.parent.name
@@ -236,7 +323,7 @@ def build_metadata(
     }
 
     run_metadata = {
-        "schema_version": "run-metadata-0.1.0",
+        "schema_version": "run-metadata-0.2.0",
         "run_id": run_id,
         "project_key": project_key,
         "project_code": project_code,
@@ -245,12 +332,15 @@ def build_metadata(
         "round": round_label,
         "debug_level": debug_level,
         "created_at": now_iso(),
+        "workspace_mode": workspace_mode,
         "workbench_root": str(WORKBENCH_ROOT),
+        "output_root": str(output_root),
+        "output_root_relative_to_workbench": safe_relative(output_root, WORKBENCH_ROOT),
         "run_root": str(run_root),
         "run_root_relative_to_workbench": safe_relative(run_root, WORKBENCH_ROOT),
         "project_entry_relative_to_workbench": project_rel,
         "directories": {
-            name: str((run_root / name).relative_to(WORKBENCH_ROOT))
+            name: safe_relative(run_root / name, WORKBENCH_ROOT) or str(run_root / name)
             for name in RUN_SUBDIRS
         },
         "source_baseline": {
@@ -260,10 +350,13 @@ def build_metadata(
             "git_dirty": git_info.get("dirty"),
             "git_status_porcelain_count": git_info.get("status_porcelain_count"),
         },
+        "authorization_ref": safe_relative(run_root / "meta" / "AUTHORIZATION.json", WORKBENCH_ROOT) or str(run_root / "meta" / "AUTHORIZATION.json"),
         "permissions": {
             "read_project": True,
-            "write_project": False,
-            "network": False,
+            "write_project_source": False,
+            "write_run_output": True,
+            "network": bool(authorization["network"]["allowed"]),
+            "online_rules": bool(authorization["online_rules"]["allowed"]),
             "start_service": False,
             "dynamic_request": False,
             "reverse_artifact": False,
@@ -275,14 +368,17 @@ def build_metadata(
     return run_metadata, project_profile
 
 
-def print_summary(run_metadata: dict[str, Any], project_profile: dict[str, Any]) -> None:
+def print_summary(run_metadata: dict[str, Any], project_profile: dict[str, Any], authorization: dict[str, Any]) -> None:
     print("run-init summary")
     print(f"  run_id: {run_metadata['run_id']}")
     print(f"  project_key: {run_metadata['project_key']}")
     print(f"  project_name: {run_metadata['project_name']}")
     print(f"  audit_mode: {run_metadata['audit_mode']}")
     print(f"  round: {run_metadata['round']}")
-    print(f"  run_root: {run_metadata['run_root_relative_to_workbench']}")
+    print(f"  workspace_mode: {run_metadata['workspace_mode']}")
+    print(f"  run_root: {run_metadata['run_root_relative_to_workbench'] or run_metadata['run_root']}")
+    print(f"  network_authorization: {authorization['authorization_mode']}")
+    print(f"  online_rules_allowed: {authorization['online_rules']['allowed']}")
     print("")
     git_info = project_profile.get("git") or {}
     print("source baseline")
@@ -304,7 +400,10 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--audit-mode", default=DEFAULT_AUDIT_MODE, choices=["FAST_STATIC", "STANDARD_STATIC", "DEEP_STATIC_EXPLORE", "DAST", "REVERSE"])
     parser.add_argument("--round", default=DEFAULT_ROUND, help="Round label, for example R1.")
     parser.add_argument("--debug-level", default=DEFAULT_DEBUG_LEVEL, choices=["off", "basic", "trace", "replay"])
-    parser.add_argument("--run-id", default=None, help="Optional explicit run id. Must be unique under runs/<project_key>.")
+    parser.add_argument("--run-id", default=None, help="Optional explicit run id. Must be unique under output-root/<project_key>.")
+    parser.add_argument("--workspace-mode", default="workbench", choices=["workbench", "project"], help="Where relative output-root is resolved.")
+    parser.add_argument("--output-root", default="runs", help="Run output root. Relative paths are resolved by workspace-mode.")
+    parser.add_argument("--network-authorization", default="deny", choices=["deny", "once", "always"], help="Authorize online rule/database/package-registry access for this run.")
     parser.add_argument("--print-summary", action="store_true", help="Print human-readable summary.")
     args = parser.parse_args(argv)
 
@@ -320,12 +419,14 @@ def main(argv: list[str]) -> int:
         print(f"[FAIL] project path is not a directory: {project_path}", file=sys.stderr)
         return 2
 
+    output_root = resolve_output_root(project_path, args.output_root, args.workspace_mode)
     project_code = normalize_optional(args.project_code)
     project_name = normalize_optional(args.project_name)
     project_key = choose_project_key(project_path, project_code, project_name)
-    run_id, run_root = next_run_root(project_key, args.audit_mode, args.round, normalize_optional(args.run_id))
+    run_id, run_root = next_run_root(output_root, project_key, args.audit_mode, args.round, normalize_optional(args.run_id))
 
     git_info = read_git_info(project_path)
+    authorization = build_authorization(args.network_authorization, args.workspace_mode)
 
     create_run_dirs(run_root)
 
@@ -338,17 +439,21 @@ def main(argv: list[str]) -> int:
         debug_level=args.debug_level,
         run_id=run_id,
         run_root=run_root,
+        output_root=output_root,
+        workspace_mode=args.workspace_mode,
         git_info=git_info,
+        authorization=authorization,
     )
 
     write_json(run_root / "meta" / "RUN_METADATA.json", run_metadata)
     write_json(run_root / "meta" / "PROJECT_PROFILE.json", project_profile)
-    write_run_readme(run_root / "README.md", run_metadata)
+    write_json(run_root / "meta" / "AUTHORIZATION.json", authorization)
+    write_run_readme(run_root / "README.md", run_metadata, authorization)
 
     if args.print_summary:
-        print_summary(run_metadata, project_profile)
+        print_summary(run_metadata, project_profile, authorization)
     else:
-        print(f"run initialized: {run_metadata['run_root_relative_to_workbench']}")
+        print(f"run initialized: {run_metadata['run_root_relative_to_workbench'] or run_metadata['run_root']}")
 
     return 0
 

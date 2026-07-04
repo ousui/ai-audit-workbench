@@ -179,6 +179,14 @@ def main(argv: list[str]) -> int:
         print(f"  failed: {result['summary']['failed']}")
         for item in items:
             print(f"  {item['benchmark_id']}: {item['status']} candidates={item.get('metrics', {}).get('total_candidates', '-')}")
+            if item.get("errors"):
+                print("    errors:")
+                for error in item["errors"]:
+                    print(f"      - {error}")
+            if item.get("warnings"):
+                print("    warnings:")
+                for warning in item["warnings"]:
+                    print(f"      - {warning}")
     return 0 if result["status"] == "passed" else 1
 
 

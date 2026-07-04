@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bdg.local/ai-audit-workbench/schemas/AI_DISCOVERED_CANDIDATES.schema.json",
+  "title": "AI Discovered Candidates",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "mode", "new_candidates"],
+  "properties": {
+    "schema_version": {"type": "string", "const": "ai-discovered-candidates-0.1.0"},
+    "mode": {"type": "string", "enum": ["DEEP_STATIC_EXPLORE"]},
+    "new_candidates": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/new_candidate"}
+    },
+    "notes": {"type": "array", "items": {"type": "string"}, "default": []}
+  },
+  "$defs": {
+    "new_candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["temp_id", "risk_type", "title", "file_path", "evidence", "why_program_missed", "negative_evidence_required"],
+      "properties": {
+        "temp_id": {"type": "string"},
+        "risk_type": {"type": "string"},
+        "title": {"type": "string"},
+        "severity_hint": {"type": "string", "enum": ["P0", "P1", "P2", "P3"], "default": "P2"},
+        "confidence_hint": {"type": "string", "enum": ["high", "medium", "low"], "default": "medium"},
+        "file_path": {"type": "string"},
+        "line_start": {"type": ["integer", "null"], "minimum": 1, "default": null},
+        "line_end": {"type": ["integer", "null"], "minimum": 1, "default": null},
+        "evidence": {"type": "string"},
+        "risk_chain": {"type": "string", "default": ""},
+        "why_program_missed": {"type": "string"},
+        "negative_evidence_required": {"type": "array", "items": {"type": "string"}},
+        "notes": {"type": "array", "items": {"type": "string"}, "default": []}
+      }
+    }
+  }
+}

@@ -12,6 +12,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ENV_RESULT = "env/ENV_CHECK_RESULT.local.json"
 DEFAULT_TOOL_MATRIX = "env/TOOL_MATRIX.yaml"
+DEFAULT_TOOL_MATRIX_EXTENSIONS = "env/TOOL_MATRIX_EXTENSIONS.yaml"
 
 FALLBACK_TOOLS: dict[str, dict[str, Any]] = {
     "git": {"display_name": "Git", "category": "core", "required_level": "required_for_workbench", "stacks": ["all"], "stages": ["run-init", "audit-map"]},
@@ -127,18 +128,7 @@ def parse_tool_matrix_without_yaml(path: Path) -> tuple[str, dict[str, dict[str,
     return version, tools, notes
 
 
-def load_tool_matrix(path: Path) -> tuple[str, dict[str, dict[str, Any]], list[str]]:
-    try:
-        import yaml  # type: ignore
-    except Exception:
-        return parse_tool_matrix_without_yaml(path)
-
-    if not path.is_file():
-        return "tool-matrix-0.1.0", FALLBACK_TOOLS, ["TOOL_MATRIX.yaml not found; using fallback core tools."]
-
-    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    version = str(data.get("schema_version") or "tool-matrix-0.1.0")
-    raw_tools = data.get("tools") or {}
+def normalize_raw_tools(raw_tools: dict[str, Any]) -> dict[str, dict[str, Any]]:
     tools: dict[str, dict[str, Any]] = {}
     for tool_id, raw in raw_tools.items():
         tools[str(tool_id)] = {
@@ -149,8 +139,37 @@ def load_tool_matrix(path: Path) -> tuple[str, dict[str, dict[str, Any]], list[s
             "stages": raw.get("stages") or [],
             "missing_policy": raw.get("missing_policy"),
             "purpose": raw.get("purpose") or [],
+            "missing_impact": raw.get("missing_impact"),
         }
-    return version, tools or FALLBACK_TOOLS, []
+    return tools
+
+
+def load_tool_matrix(path: Path, extension_path: Path | None = None) -> tuple[str, dict[str, dict[str, Any]], list[str]]:
+    try:
+        import yaml  # type: ignore
+    except Exception:
+        return parse_tool_matrix_without_yaml(path)
+
+    if not path.is_file():
+        return "tool-matrix-0.1.0", FALLBACK_TOOLS, ["TOOL_MATRIX.yaml not found; using fallback core tools."]
+
+    notes: list[str] = []
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    version = str(data.get("schema_version") or "tool-matrix-0.1.0")
+    tools = normalize_raw_tools(data.get("tools") or {})
+
+    if extension_path and extension_path.is_file():
+        ext_data = yaml.safe_load(extension_path.read_text(encoding="utf-8")) or {}
+        ext_tools = normalize_raw_tools(ext_data.get("tools") or {})
+        overlap = sorted(set(tools) & set(ext_tools))
+        if overlap:
+            notes.append("TOOL_MATRIX_EXTENSIONS.yaml overrides tools: " + ", ".join(overlap))
+        tools.update(ext_tools)
+        notes.append(f"Loaded tool matrix extensions: {extension_path}")
+    elif extension_path:
+        notes.append(f"Tool matrix extensions not found: {extension_path}")
+
+    return version, tools or FALLBACK_TOOLS, notes
 
 
 def relevant_to_stack(tool: dict[str, Any], detected_stacks: list[str]) -> bool:
@@ -196,11 +215,11 @@ def decision_for(tool: dict[str, Any], env_item: dict[str, Any], selected: bool,
     return "missing", False, "optional_tool_missing"
 
 
-def build_tool_plan(run_root: Path, env_path: Path, matrix_path: Path) -> dict[str, Any]:
+def build_tool_plan(run_root: Path, env_path: Path, matrix_path: Path, extension_path: Path | None) -> dict[str, Any]:
     run_meta = load_json(run_root / "meta" / "RUN_METADATA.json")
     audit_map = load_json(run_root / "audit-map" / "AUDIT_MAP.json")
     env_result = load_json(env_path) if env_path.is_file() else None
-    matrix_version, tools, matrix_notes = load_tool_matrix(matrix_path)
+    matrix_version, tools, matrix_notes = load_tool_matrix(matrix_path, extension_path)
 
     detected_stacks = audit_map.get("stacks", {}).get("detected_stack_ids") or []
     audit_mode = str(run_meta.get("audit_mode") or "FAST_STATIC")
@@ -262,6 +281,7 @@ def build_tool_plan(run_root: Path, env_path: Path, matrix_path: Path) -> dict[s
         },
         "inputs": {
             "tool_matrix_path": str(matrix_path),
+            "tool_matrix_extension_path": str(extension_path) if extension_path else None,
             "tool_matrix_version": matrix_version,
             "env_check_path": str(env_path),
             "env_check_available": env_result is not None,
@@ -334,6 +354,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--run-root", required=True)
     parser.add_argument("--env-result", default=DEFAULT_ENV_RESULT)
     parser.add_argument("--tool-matrix", default=DEFAULT_TOOL_MATRIX)
+    parser.add_argument("--tool-matrix-extensions", default=DEFAULT_TOOL_MATRIX_EXTENSIONS)
     parser.add_argument("--print-summary", action="store_true")
     args = parser.parse_args(argv)
 
@@ -353,8 +374,11 @@ def main(argv: list[str]) -> int:
     matrix_path = Path(args.tool_matrix)
     if not matrix_path.is_absolute():
         matrix_path = (ROOT / matrix_path).resolve()
+    extension_path = Path(args.tool_matrix_extensions)
+    if not extension_path.is_absolute():
+        extension_path = (ROOT / extension_path).resolve()
 
-    plan = build_tool_plan(run_root=run_root, env_path=env_path, matrix_path=matrix_path)
+    plan = build_tool_plan(run_root=run_root, env_path=env_path, matrix_path=matrix_path, extension_path=extension_path)
     out_dir = run_root / "evidence"
     out_dir.mkdir(parents=True, exist_ok=True)
     write_json(out_dir / "TOOL_PLAN.json", plan)

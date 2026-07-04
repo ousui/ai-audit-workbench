@@ -27,7 +27,7 @@ help:
 	@echo "  make smoke           Run workbench smoke check"
 	@echo "  make m0              Run env-summary and smoke"
 	@echo ""
-	@echo "M1-M13 FAST_STATIC / STANDARD / DEEP scaffold:"
+	@echo "M1-M14 pipeline:"
 	@echo "  make m1 PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project'"
 	@echo "  make m2 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
 	@echo "  make m3 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
@@ -41,6 +41,7 @@ help:
 	@echo "  make m11 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS DEBUG_LEVEL=basic"
 	@echo "  make m12"
 	@echo "  make m13 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
+	@echo "  make m14 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
 	@echo ""
 	@echo "One-shot:"
 	@echo "  make fast-static PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project'"
@@ -220,6 +221,11 @@ deep-explore-input:
 m13: py-compile context-pack deep-explore-input
 	@echo ""
 	@echo "M13 STANDARD / DEEP scaffold validation completed."
+
+.PHONY: m14
+m14: py-compile tool-plan
+	@echo ""
+	@echo "M14 tool matrix extension validation completed."
 
 .PHONY: fast-static
 fast-static: check-deps

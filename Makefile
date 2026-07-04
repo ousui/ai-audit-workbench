@@ -12,6 +12,10 @@ ROUND ?= R1
 DEBUG_LEVEL ?= off
 RUN_ROOT ?=
 BENCHMARK_ID ?= all
+WORKSPACE_MODE ?= workbench
+OUTPUT_ROOT ?= runs
+NETWORK_AUTHORIZATION ?= deny
+STACK_ENV_RESULT ?=
 
 .PHONY: help
 help:
@@ -28,7 +32,7 @@ help:
 	@echo "  make m0              Run env-summary and smoke"
 	@echo ""
 	@echo "M1-M14 pipeline:"
-	@echo "  make m1 PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project'"
+	@echo "  make m1 PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project' NETWORK_AUTHORIZATION=once"
 	@echo "  make m2 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
 	@echo "  make m3 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
 	@echo "  make m4 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
@@ -44,9 +48,9 @@ help:
 	@echo "  make m14 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
 	@echo ""
 	@echo "One-shot:"
-	@echo "  make fast-static PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project'"
+	@echo "  make fast-static PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project' NETWORK_AUTHORIZATION=once"
 	@echo ""
-	@echo "Direct targets: run-init, audit-map, tool-plan, evidence-pack, tool-run, candidates, ai-triage, merge, delivery, validate-run, debug-trace, benchmark, context-pack, deep-explore-input"
+	@echo "Direct targets: run-init, audit-map, stack-env-check, tool-plan, tool-plan-stack, tool-execution-plan, evidence-pack, tool-run, candidates, ai-triage, merge, delivery, validate-run, debug-trace, benchmark, context-pack, deep-explore-input"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  make clean-smoke     Remove tmp/smoke"
@@ -91,6 +95,9 @@ run-init:
 		--audit-mode "$(AUDIT_MODE)" \
 		--round "$(ROUND)" \
 		--debug-level "$(DEBUG_LEVEL)" \
+		--workspace-mode "$(WORKSPACE_MODE)" \
+		--output-root "$(OUTPUT_ROOT)" \
+		--network-authorization "$(NETWORK_AUTHORIZATION)" \
 		--print-summary
 
 .PHONY: m1
@@ -108,10 +115,20 @@ m2: py-compile audit-map
 	@echo ""
 	@echo "M2 audit-map validation completed."
 
+.PHONY: stack-env-check
+stack-env-check: check-deps
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make stack-env-check RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	$(PYTHON) scripts/31_stack_env_check.py --run-root "$(RUN_ROOT)" --include-all-tools --print-summary
+
 .PHONY: tool-plan
 tool-plan: check-deps
 	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make tool-plan RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
 	$(PYTHON) scripts/30_build_tool_plan.py --run-root "$(RUN_ROOT)" --env-result "$(ENV_CHECK_RESULT)" --print-summary
+
+.PHONY: tool-plan-stack
+tool-plan-stack: check-deps
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make tool-plan-stack RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	$(PYTHON) scripts/30_build_tool_plan.py --run-root "$(RUN_ROOT)" --env-result "$${STACK_ENV_RESULT:-$(RUN_ROOT)/evidence/STACK_ENV_CHECK_RESULT.json}" --print-summary
 
 .PHONY: m3
 m3: py-compile tool-plan
@@ -222,10 +239,15 @@ m13: py-compile context-pack deep-explore-input
 	@echo ""
 	@echo "M13 STANDARD / DEEP scaffold validation completed."
 
+.PHONY: tool-execution-plan
+tool-execution-plan:
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make tool-execution-plan RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	$(PYTHON) scripts/32_build_tool_execution_plan.py --run-root "$(RUN_ROOT)" --print-summary
+
 .PHONY: m14
-m14: py-compile tool-plan
+m14: py-compile stack-env-check tool-plan-stack tool-execution-plan
 	@echo ""
-	@echo "M14 tool matrix extension validation completed."
+	@echo "M14 stack env-check and tool execution plan validation completed."
 
 .PHONY: fast-static
 fast-static: check-deps
@@ -235,7 +257,10 @@ fast-static: check-deps
 		--project-code "$(PROJECT_CODE)" \
 		--project-name "$(PROJECT_NAME)" \
 		--round "$(ROUND)" \
-		--debug-level "$(DEBUG_LEVEL)"
+		--debug-level "$(DEBUG_LEVEL)" \
+		--workspace-mode "$(WORKSPACE_MODE)" \
+		--output-root "$(OUTPUT_ROOT)" \
+		--network-authorization "$(NETWORK_AUTHORIZATION)"
 
 .PHONY: clean-smoke
 clean-smoke:
@@ -247,7 +272,7 @@ clean-env:
 
 .PHONY: py-compile
 py-compile:
-	$(PYTHON) -m py_compile scripts/00_env_check.py scripts/05_check_deps.py scripts/10_run_init.py scripts/20_build_audit_map.py scripts/30_build_tool_plan.py scripts/40_build_evidence_pack.py scripts/50_run_static_tools.py scripts/60_build_candidates.py scripts/70_prepare_ai_triage.py scripts/72_build_context_pack.py scripts/74_prepare_deep_explore.py scripts/80_merge_results.py scripts/90_render_delivery.py scripts/95_validate_run.py scripts/100_fast_static.py scripts/110_collect_debug.py scripts/120_run_benchmark.py scripts/99_smoke_check.py
+	$(PYTHON) -m py_compile scripts/00_env_check.py scripts/05_check_deps.py scripts/10_run_init.py scripts/20_build_audit_map.py scripts/30_build_tool_plan.py scripts/31_stack_env_check.py scripts/32_build_tool_execution_plan.py scripts/40_build_evidence_pack.py scripts/50_run_static_tools.py scripts/60_build_candidates.py scripts/70_prepare_ai_triage.py scripts/72_build_context_pack.py scripts/74_prepare_deep_explore.py scripts/80_merge_results.py scripts/90_render_delivery.py scripts/95_validate_run.py scripts/100_fast_static.py scripts/110_collect_debug.py scripts/120_run_benchmark.py scripts/99_smoke_check.py
 
 .PHONY: status
 status:

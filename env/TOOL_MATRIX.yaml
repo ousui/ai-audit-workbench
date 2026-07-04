@@ -1,0 +1,442 @@
+schema_version: "tool-matrix-0.1.0"
+
+description: >
+  AI Audit Workbench tool matrix.
+  This file defines which tools are required or recommended for each audit stage.
+  It is a shared team standard and does not record local machine paths.
+
+principles:
+  - Core tools are required before any audit can start.
+  - Stack-specific tools are selected later according to project technology stack.
+  - Missing required core tools should block workbench execution.
+  - Missing recommended tools should be recorded as blocked or skipped, never as no risk.
+  - Tool execution must be read-only against audited source code by default.
+  - Tool outputs must be written to runs/, tmp/, delivery/, or configured cache directories.
+  - Network access, dynamic testing, service startup, reverse analysis, upload, or external write-back must require explicit confirmation.
+
+tool_categories:
+  core:
+    description: "Basic tools required for the workbench itself."
+  common_static:
+    description: "Common static audit tools used across multiple stacks."
+  sdk:
+    description: "Language runtime or SDK tools selected by project stack."
+  security:
+    description: "Security scanners or analyzers selected by project stack."
+  dast:
+    description: "Dynamic testing tools. Not enabled by default in current SAST-only stage."
+  reverse:
+    description: "Reverse engineering or build artifact analysis tools. Not enabled by default in current SAST-only stage."
+
+required_levels:
+  required_for_workbench:
+    description: "Missing this tool blocks the workbench."
+  required_for_stack:
+    description: "Missing this tool blocks stack-specific scanning for matching projects."
+  recommended_for_static:
+    description: "Missing this tool reduces static audit coverage but does not block the whole workbench."
+  optional:
+    description: "Useful but not required."
+  future_stage:
+    description: "Reserved for future DAST or REVERSE stages."
+
+default_permissions:
+  read_project: true
+  write_project: false
+  write_run_output: true
+  write_cache: true
+  network: false
+  start_service: false
+  dynamic_request: false
+  reverse_artifact: false
+  upload_external: false
+  write_external: false
+
+tools:
+  git:
+    display_name: "Git"
+    category: "core"
+    required_level: "required_for_workbench"
+    stages:
+      - env-check
+      - project-profile
+      - audit-map
+      - run-init
+    stacks:
+      - all
+    purpose:
+      - "Read repository metadata."
+      - "Confirm branch and commit."
+      - "Support git-based project profiling."
+    detection:
+      commands:
+        - "git --version"
+      locate:
+        - "command -v git"
+    version:
+      min: null
+      recommended: null
+    permissions:
+      read_project: true
+      write_project: false
+      write_run_output: false
+      network: false
+    missing_impact: "Cannot confirm repository state, branch, commit, or audit baseline."
+    missing_policy: "block_workbench"
+    install:
+      macos:
+        - "xcode-select --install"
+        - "brew install git"
+      linux_debian:
+        - "sudo apt-get update && sudo apt-get install -y git"
+      linux_redhat:
+        - "sudo dnf install -y git"
+      windows:
+        - "winget install Git.Git"
+
+  rg:
+    display_name: "ripgrep"
+    category: "core"
+    required_level: "required_for_workbench"
+    stages:
+      - env-check
+      - audit-map
+      - evidence-collection
+      - candidate-build
+    stacks:
+      - all
+    purpose:
+      - "Fast source code search."
+      - "Find routes, configs, secrets, dangerous functions, and high-risk modules."
+    detection:
+      commands:
+        - "rg --version"
+      locate:
+        - "command -v rg"
+    version:
+      min: null
+      recommended: null
+    permissions:
+      read_project: true
+      write_project: false
+      write_run_output: true
+      network: false
+    missing_impact: "Cannot efficiently build audit map or candidate pool."
+    missing_policy: "block_workbench"
+    install:
+      macos:
+        - "brew install ripgrep"
+      linux_debian:
+        - "sudo apt-get update && sudo apt-get install -y ripgrep"
+      linux_redhat:
+        - "sudo dnf install -y ripgrep"
+      windows:
+        - "winget install BurntSushi.ripgrep.MSVC"
+
+  python3:
+    display_name: "Python 3"
+    category: "core"
+    required_level: "required_for_workbench"
+    stages:
+      - env-check
+      - audit-map
+      - tool-plan
+      - candidate-build
+      - merge
+      - delivery
+      - validate
+    stacks:
+      - all
+    purpose:
+      - "Run workbench scripts."
+      - "Parse tool outputs."
+      - "Generate candidates, merge results, render delivery, and validate artifacts."
+    detection:
+      commands:
+        - "python3 --version"
+      locate:
+        - "command -v python3"
+    version:
+      min: "3.10"
+      recommended: "3.11+"
+    permissions:
+      read_project: true
+      write_project: false
+      write_run_output: true
+      write_cache: true
+      network: false
+    missing_impact: "Cannot run workbench automation scripts."
+    missing_policy: "block_workbench"
+    install:
+      macos:
+        - "brew install python"
+        - "mise use -g python@3.11"
+        - "asdf install python 3.11.9 && asdf global python 3.11.9"
+      linux_debian:
+        - "sudo apt-get update && sudo apt-get install -y python3 python3-venv python3-pip"
+      linux_redhat:
+        - "sudo dnf install -y python3 python3-pip"
+      windows:
+        - "winget install Python.Python.3.11"
+
+  bash:
+    display_name: "Bash"
+    category: "core"
+    required_level: "required_for_workbench"
+    stages:
+      - env-check
+      - script-runner
+    stacks:
+      - all
+    purpose:
+      - "Run portable shell helpers."
+      - "Support basic command orchestration."
+    detection:
+      commands:
+        - "bash --version"
+      locate:
+        - "command -v bash"
+    version:
+      min: null
+      recommended: null
+    permissions:
+      read_project: true
+      write_project: false
+      write_run_output: true
+      network: false
+    missing_impact: "Some helper scripts may not run."
+    missing_policy: "block_workbench"
+    install:
+      macos:
+        - "brew install bash"
+      linux_debian:
+        - "sudo apt-get update && sudo apt-get install -y bash"
+      linux_redhat:
+        - "sudo dnf install -y bash"
+      windows:
+        - "Use Git Bash from Git for Windows"
+        - "Use WSL for Linux-compatible shell execution"
+
+  find:
+    display_name: "find"
+    category: "core"
+    required_level: "required_for_workbench"
+    stages:
+      - audit-map
+      - evidence-collection
+    stacks:
+      - all
+    purpose:
+      - "Enumerate files and directories."
+      - "Support audit map generation."
+    detection:
+      commands:
+        - "find --version"
+      locate:
+        - "command -v find"
+    version:
+      min: null
+      recommended: null
+    permissions:
+      read_project: true
+      write_project: false
+      write_run_output: true
+      network: false
+    missing_impact: "Cannot reliably enumerate source files."
+    missing_policy: "block_workbench"
+    install:
+      macos:
+        - "Provided by macOS system tools"
+      linux_debian:
+        - "sudo apt-get install -y findutils"
+      linux_redhat:
+        - "sudo dnf install -y findutils"
+      windows:
+        - "Use Git Bash or WSL"
+
+  grep:
+    display_name: "grep"
+    category: "core"
+    required_level: "required_for_workbench"
+    stages:
+      - env-check
+      - audit-map
+      - evidence-collection
+    stacks:
+      - all
+    purpose:
+      - "Fallback text search when ripgrep is unavailable or unsuitable."
+    detection:
+      commands:
+        - "grep --version"
+      locate:
+        - "command -v grep"
+    version:
+      min: null
+      recommended: null
+    permissions:
+      read_project: true
+      write_project: false
+      write_run_output: true
+      network: false
+    missing_impact: "Fallback text scanning is unavailable."
+    missing_policy: "block_workbench"
+    install:
+      macos:
+        - "Provided by macOS system tools"
+      linux_debian:
+        - "sudo apt-get install -y grep"
+      linux_redhat:
+        - "sudo dnf install -y grep"
+      windows:
+        - "Use Git Bash or WSL"
+
+  sed:
+    display_name: "sed"
+    category: "core"
+    required_level: "required_for_workbench"
+    stages:
+      - env-check
+      - evidence-collection
+      - validation
+    stacks:
+      - all
+    purpose:
+      - "Basic text transformation."
+      - "Support lightweight output normalization."
+    detection:
+      commands:
+        - "sed --version"
+      locate:
+        - "command -v sed"
+    version:
+      min: null
+      recommended: null
+    permissions:
+      read_project: true
+      write_project: false
+      write_run_output: true
+      network: false
+    missing_impact: "Some shell-based normalization steps may fail."
+    missing_policy: "block_workbench"
+    install:
+      macos:
+        - "Provided by macOS system tools"
+      linux_debian:
+        - "sudo apt-get install -y sed"
+      linux_redhat:
+        - "sudo dnf install -y sed"
+      windows:
+        - "Use Git Bash or WSL"
+
+  awk:
+    display_name: "awk"
+    category: "core"
+    required_level: "required_for_workbench"
+    stages:
+      - env-check
+      - evidence-collection
+      - validation
+    stacks:
+      - all
+    purpose:
+      - "Basic text processing."
+      - "Support lightweight statistics and normalization."
+    detection:
+      commands:
+        - "awk --version"
+      locate:
+        - "command -v awk"
+    version:
+      min: null
+      recommended: null
+    permissions:
+      read_project: true
+      write_project: false
+      write_run_output: true
+      network: false
+    missing_impact: "Some shell-based statistics or normalization steps may fail."
+    missing_policy: "block_workbench"
+    install:
+      macos:
+        - "Provided by macOS system tools"
+      linux_debian:
+        - "sudo apt-get install -y gawk"
+      linux_redhat:
+        - "sudo dnf install -y gawk"
+      windows:
+        - "Use Git Bash or WSL"
+
+  jq:
+    display_name: "jq"
+    category: "core"
+    required_level: "recommended_for_static"
+    stages:
+      - env-check
+      - tool-output-normalization
+      - validation
+    stacks:
+      - all
+    purpose:
+      - "Inspect and normalize JSON outputs from tools."
+      - "Support manual review of JSON artifacts."
+    detection:
+      commands:
+        - "jq --version"
+      locate:
+        - "command -v jq"
+    version:
+      min: null
+      recommended: null
+    permissions:
+      read_project: false
+      write_project: false
+      write_run_output: true
+      network: false
+    missing_impact: "JSON outputs can still be processed by Python, but manual inspection is less convenient."
+    missing_policy: "record_missing_not_blocking"
+    install:
+      macos:
+        - "brew install jq"
+      linux_debian:
+        - "sudo apt-get update && sudo apt-get install -y jq"
+      linux_redhat:
+        - "sudo dnf install -y jq"
+      windows:
+        - "winget install jqlang.jq"
+
+  tar:
+    display_name: "tar"
+    category: "core"
+    required_level: "recommended_for_static"
+    stages:
+      - archive
+      - delivery
+    stacks:
+      - all
+    purpose:
+      - "Package local artifacts when needed."
+    detection:
+      commands:
+        - "tar --version"
+      locate:
+        - "command -v tar"
+    version:
+      min: null
+      recommended: null
+    permissions:
+      read_project: false
+      write_project: false
+      write_run_output: true
+      network: false
+    missing_impact: "Artifact packaging may be unavailable."
+    missing_policy: "record_missing_not_blocking"
+    install:
+      macos:
+        - "Provided by macOS system tools"
+      linux_debian:
+        - "sudo apt-get install -y tar"
+      linux_redhat:
+        - "sudo dnf install -y tar"
+      windows:
+        - "Use Git Bash or WSL"

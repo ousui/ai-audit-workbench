@@ -1,0 +1,293 @@
+schema_version: "tool-matrix-extensions-0.1.0"
+
+description: >
+  Stack-specific and common static audit tool extensions.
+  These tools are selected by tool-plan according to detected project stacks.
+  Current M14 stage only expands planning coverage; execution integration is added later.
+
+tools:
+  semgrep:
+    display_name: "Semgrep"
+    category: "common_static"
+    required_level: "recommended_for_static"
+    stages: ["sast", "tool-run", "candidate-build"]
+    stacks: ["all"]
+    purpose:
+      - "Run static security rules across multiple languages."
+      - "Detect secrets, insecure APIs, and common SAST patterns."
+    detection:
+      commands: ["semgrep --version"]
+      locate: ["command -v semgrep"]
+    missing_impact: "Common SAST rule coverage is reduced."
+    missing_policy: "record_missing_not_blocking"
+    install:
+      macos: ["brew install semgrep", "python3 -m pip install semgrep"]
+      linux_debian: ["python3 -m pip install semgrep"]
+      linux_redhat: ["python3 -m pip install semgrep"]
+      windows: ["Use WSL and install semgrep with pip or package manager"]
+
+  gitleaks:
+    display_name: "gitleaks"
+    category: "common_static"
+    required_level: "recommended_for_static"
+    stages: ["sast", "secret-scan", "tool-run"]
+    stacks: ["all"]
+    purpose:
+      - "Scan current tree and Git history for secrets."
+    detection:
+      commands: ["gitleaks version"]
+      locate: ["command -v gitleaks"]
+    missing_impact: "Git secret scanning coverage is reduced."
+    missing_policy: "record_missing_not_blocking"
+    install:
+      macos: ["brew install gitleaks"]
+      linux_debian: ["Install from official release or package repository"]
+      linux_redhat: ["Install from official release or package repository"]
+      windows: ["Use WSL or official release"]
+
+  trivy:
+    display_name: "Trivy"
+    category: "common_static"
+    required_level: "recommended_for_static"
+    stages: ["sast", "dependency-scan", "container-scan"]
+    stacks: ["all"]
+    purpose:
+      - "Scan filesystem, dependencies, config, and container images for vulnerabilities."
+    detection:
+      commands: ["trivy --version"]
+      locate: ["command -v trivy"]
+    missing_impact: "Filesystem and dependency vulnerability scan coverage is reduced."
+    missing_policy: "record_missing_not_blocking"
+    install:
+      macos: ["brew install trivy"]
+      linux_debian: ["Install from Aqua Security apt repository or official release"]
+      linux_redhat: ["Install from Aqua Security rpm repository or official release"]
+      windows: ["Use WSL or official release"]
+
+  go:
+    display_name: "Go SDK"
+    category: "sdk"
+    required_level: "recommended_for_static"
+    stages: ["stack-scan", "dependency-scan", "quality-scan"]
+    stacks: ["go"]
+    purpose:
+      - "Run Go stack tools and inspect Go module metadata."
+    detection:
+      commands: ["go version"]
+      locate: ["command -v go"]
+    missing_impact: "Go-specific dependency and quality scans cannot run."
+    missing_policy: "record_missing_not_blocking"
+    install:
+      macos: ["brew install go", "mise use -g go@latest"]
+      linux_debian: ["sudo apt-get install -y golang", "mise use -g go@latest"]
+      linux_redhat: ["sudo dnf install -y golang", "mise use -g go@latest"]
+      windows: ["Use WSL or official Go installer"]
+
+  govulncheck:
+    display_name: "govulncheck"
+    category: "security"
+    required_level: "recommended_for_static"
+    stages: ["dependency-scan", "go-security"]
+    stacks: ["go"]
+    purpose:
+      - "Scan Go modules and call graph for known vulnerabilities."
+    detection:
+      commands: ["govulncheck -version"]
+      locate: ["command -v govulncheck"]
+    missing_impact: "Go vulnerability scan coverage is reduced."
+    missing_policy: "record_missing_not_blocking"
+    install:
+      macos: ["go install golang.org/x/vuln/cmd/govulncheck@latest"]
+      linux_debian: ["go install golang.org/x/vuln/cmd/govulncheck@latest"]
+      linux_redhat: ["go install golang.org/x/vuln/cmd/govulncheck@latest"]
+      windows: ["Use WSL and go install golang.org/x/vuln/cmd/govulncheck@latest"]
+
+  golangci-lint:
+    display_name: "golangci-lint"
+    category: "security"
+    required_level: "recommended_for_static"
+    stages: ["quality-scan", "go-quality"]
+    stacks: ["go"]
+    purpose:
+      - "Run aggregated Go linters for quality and risky code patterns."
+    detection:
+      commands: ["golangci-lint --version"]
+      locate: ["command -v golangci-lint"]
+    missing_impact: "Go quality scan coverage is reduced."
+    missing_policy: "record_missing_not_blocking"
+    install:
+      macos: ["brew install golangci-lint"]
+      linux_debian: ["Install from official binary or package repository"]
+      linux_redhat: ["Install from official binary or package repository"]
+      windows: ["Use WSL or official binary"]
+
+  java:
+    display_name: "Java SDK"
+    category: "sdk"
+    required_level: "recommended_for_static"
+    stages: ["stack-scan", "java-security"]
+    stacks: ["java_jvm", "android"]
+    purpose:
+      - "Run Java and JVM security tools."
+    detection:
+      commands: ["java -version"]
+      locate: ["command -v java"]
+    missing_impact: "Java/JVM dependency and security scans cannot run."
+    missing_policy: "record_missing_not_blocking"
+    install:
+      macos: ["brew install openjdk", "mise use -g java@temurin-17"]
+      linux_debian: ["sudo apt-get install -y openjdk-17-jdk"]
+      linux_redhat: ["sudo dnf install -y java-17-openjdk-devel"]
+      windows: ["Use WSL, winget, or SDKMAN"]
+
+  mvn:
+    display_name: "Maven"
+    category: "sdk"
+    required_level: "recommended_for_static"
+    stages: ["dependency-scan", "java-security"]
+    stacks: ["java_jvm"]
+    purpose:
+      - "Run Maven dependency and plugin based scans."
+    detection:
+      commands: ["mvn --version"]
+      locate: ["command -v mvn"]
+    missing_impact: "Maven project dependency checks cannot run."
+    missing_policy: "record_missing_not_blocking"
+    install:
+      macos: ["brew install maven"]
+      linux_debian: ["sudo apt-get install -y maven"]
+      linux_redhat: ["sudo dnf install -y maven"]
+      windows: ["Use WSL, winget, or SDKMAN"]
+
+  gradle:
+    display_name: "Gradle"
+    category: "sdk"
+    required_level: "recommended_for_static"
+    stages: ["dependency-scan", "java-security", "android-security"]
+    stacks: ["java_jvm", "android"]
+    purpose:
+      - "Run Gradle dependency and plugin based scans."
+    detection:
+      commands: ["gradle --version"]
+      locate: ["command -v gradle"]
+    missing_impact: "Gradle project dependency checks cannot run unless wrapper exists."
+    missing_policy: "record_missing_not_blocking"
+    install:
+      macos: ["brew install gradle"]
+      linux_debian: ["sudo apt-get install -y gradle"]
+      linux_redhat: ["sudo dnf install -y gradle"]
+      windows: ["Use WSL, winget, or SDKMAN"]
+
+  dependency-check:
+    display_name: "OWASP Dependency-Check"
+    category: "security"
+    required_level: "recommended_for_static"
+    stages: ["dependency-scan", "java-security"]
+    stacks: ["java_jvm", "android"]
+    purpose:
+      - "Scan Java/JVM dependencies for known CVEs."
+    detection:
+      commands: ["dependency-check --version"]
+      locate: ["command -v dependency-check"]
+    missing_impact: "Java dependency CVE scan coverage is reduced."
+    missing_policy: "record_missing_not_blocking"
+    install:
+      macos: ["brew install dependency-check"]
+      linux_debian: ["Install from official release or use Maven/Gradle plugin"]
+      linux_redhat: ["Install from official release or use Maven/Gradle plugin"]
+      windows: ["Use WSL or official release"]
+
+  node:
+    display_name: "Node.js"
+    category: "sdk"
+    required_level: "recommended_for_static"
+    stages: ["stack-scan", "frontend-security"]
+    stacks: ["node_frontend"]
+    purpose:
+      - "Run JS/TS/frontend dependency and security tools."
+    detection:
+      commands: ["node --version"]
+      locate: ["command -v node"]
+    missing_impact: "Node/frontend dependency checks cannot run."
+    missing_policy: "record_missing_not_blocking"
+    install:
+      macos: ["brew install node", "mise use -g node@lts", "nvm install --lts"]
+      linux_debian: ["sudo apt-get install -y nodejs npm", "mise use -g node@lts"]
+      linux_redhat: ["sudo dnf install -y nodejs npm", "mise use -g node@lts"]
+      windows: ["Use WSL, winget, nvm-windows, or mise"]
+
+  npm:
+    display_name: "npm"
+    category: "sdk"
+    required_level: "recommended_for_static"
+    stages: ["dependency-scan", "frontend-security"]
+    stacks: ["node_frontend"]
+    purpose:
+      - "Run npm audit and install frontend tooling."
+    detection:
+      commands: ["npm --version"]
+      locate: ["command -v npm"]
+    missing_impact: "npm audit and npm-based tools cannot run."
+    missing_policy: "record_missing_not_blocking"
+    install:
+      macos: ["Installed with Node.js"]
+      linux_debian: ["sudo apt-get install -y npm"]
+      linux_redhat: ["sudo dnf install -y npm"]
+      windows: ["Installed with Node.js"]
+
+  pnpm:
+    display_name: "pnpm"
+    category: "sdk"
+    required_level: "optional"
+    stages: ["dependency-scan", "frontend-security"]
+    stacks: ["node_frontend"]
+    purpose:
+      - "Run pnpm audit for projects using pnpm-lock.yaml."
+    detection:
+      commands: ["pnpm --version"]
+      locate: ["command -v pnpm"]
+    missing_impact: "pnpm-specific audit may be unavailable for pnpm projects."
+    missing_policy: "record_missing_not_blocking"
+    install:
+      macos: ["corepack enable", "brew install pnpm"]
+      linux_debian: ["corepack enable"]
+      linux_redhat: ["corepack enable"]
+      windows: ["corepack enable"]
+
+  yarn:
+    display_name: "Yarn"
+    category: "sdk"
+    required_level: "optional"
+    stages: ["dependency-scan", "frontend-security"]
+    stacks: ["node_frontend"]
+    purpose:
+      - "Support Yarn based frontend projects."
+    detection:
+      commands: ["yarn --version"]
+      locate: ["command -v yarn"]
+    missing_impact: "Yarn-specific audit may be unavailable for Yarn projects."
+    missing_policy: "record_missing_not_blocking"
+    install:
+      macos: ["corepack enable", "brew install yarn"]
+      linux_debian: ["corepack enable"]
+      linux_redhat: ["corepack enable"]
+      windows: ["corepack enable"]
+
+  retire:
+    display_name: "retire.js"
+    category: "security"
+    required_level: "recommended_for_static"
+    stages: ["dependency-scan", "frontend-security"]
+    stacks: ["node_frontend"]
+    purpose:
+      - "Scan frontend dependencies for known vulnerabilities."
+    detection:
+      commands: ["retire --version"]
+      locate: ["command -v retire"]
+    missing_impact: "Frontend dependency vulnerability scan coverage is reduced."
+    missing_policy: "record_missing_not_blocking"
+    install:
+      macos: ["npm install -g retire"]
+      linux_debian: ["npm install -g retire"]
+      linux_redhat: ["npm install -g retire"]
+      windows: ["Use WSL or npm install -g retire"]

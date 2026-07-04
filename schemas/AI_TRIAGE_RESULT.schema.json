@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bdg.local/ai-audit-workbench/schemas/AI_TRIAGE_RESULT.schema.json",
+  "title": "AI Triage Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "triage_mode", "items"],
+  "properties": {
+    "schema_version": {"type": "string", "const": "ai-triage-result-0.1.0"},
+    "triage_mode": {"type": "string", "enum": ["FAST_STATIC", "STANDARD_STATIC", "DEEP_STATIC_EXPLORE", "STUB"]},
+    "items": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/item"}
+    },
+    "notes": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": []
+    }
+  },
+  "$defs": {
+    "item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_id", "decision", "severity", "confidence", "title", "risk_type", "evidence", "reason"],
+      "properties": {
+        "candidate_id": {"type": "string"},
+        "decision": {"type": "string", "enum": ["FIND", "REVIEW", "RUNTIME", "CAND", "NO_RISK", "FP", "BLOCKED"]},
+        "severity": {"type": "string", "enum": ["P0", "P1", "P2", "P3"]},
+        "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "title": {"type": "string"},
+        "risk_type": {"type": "string"},
+        "evidence": {"type": "string"},
+        "risk_chain": {"type": "string", "default": ""},
+        "negative_evidence_checked": {"type": "array", "items": {"type": "string"}, "default": []},
+        "missing_evidence": {"type": "array", "items": {"type": "string"}, "default": []},
+        "impact": {"type": "string", "default": ""},
+        "recommendation": {"type": "string", "default": ""},
+        "reason": {"type": "string"}
+      }
+    }
+  }
+}

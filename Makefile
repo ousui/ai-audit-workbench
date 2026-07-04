@@ -33,7 +33,10 @@ help:
 	@echo "  make smoke           Run workbench smoke check"
 	@echo "  make m0              Run env-summary and smoke"
 	@echo ""
-	@echo "M1-M14 pipeline:"
+	@echo "Formal audit flow:"
+	@echo "  make audit-static PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project' NETWORK_AUTHORIZATION=once"
+	@echo ""
+	@echo "M1-M15 capability targets:"
 	@echo "  make m1 PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project' NETWORK_AUTHORIZATION=once"
 	@echo "  make m2 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
 	@echo "  make m3 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
@@ -48,8 +51,9 @@ help:
 	@echo "  make m12"
 	@echo "  make m13 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
 	@echo "  make m14 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
+	@echo "  make m15 PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project' DRY_RUN=true"
 	@echo ""
-	@echo "One-shot:"
+	@echo "One-shot legacy:"
 	@echo "  make fast-static PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project' NETWORK_AUTHORIZATION=once"
 	@echo ""
 	@echo "Direct targets: run-init, audit-map, stack-env-check, tool-plan, tool-plan-stack, tool-execution-plan, ext-tool-run, ext-tool-candidates, merge-external-candidates, evidence-pack, tool-run, candidates, ai-triage, merge, delivery, validate-run, debug-trace, benchmark, context-pack, deep-explore-input"
@@ -270,6 +274,20 @@ m14: py-compile stack-env-check tool-plan-stack tool-execution-plan ext-tool-run
 	@echo ""
 	@echo "M14 stack env-check, external tool execution, candidate import, and candidate merge validation completed."
 
+.PHONY: audit-static
+audit-static: check-deps
+	@test -n "$(PROJECT_PATH)" || (echo "PROJECT_PATH is required. Example: make audit-static PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project'"; exit 2)
+	@if [ "$(DRY_RUN)" = "true" ]; then \
+		$(PYTHON) scripts/130_audit_static.py --project-path "$(PROJECT_PATH)" --project-code "$(PROJECT_CODE)" --project-name "$(PROJECT_NAME)" --round "$(ROUND)" --debug-level "$(DEBUG_LEVEL)" --workspace-mode "$(WORKSPACE_MODE)" --output-root "$(OUTPUT_ROOT)" --network-authorization "$(NETWORK_AUTHORIZATION)" --tool-timeout "$(TOOL_TIMEOUT)" --dry-run-external-tools; \
+	else \
+		$(PYTHON) scripts/130_audit_static.py --project-path "$(PROJECT_PATH)" --project-code "$(PROJECT_CODE)" --project-name "$(PROJECT_NAME)" --round "$(ROUND)" --debug-level "$(DEBUG_LEVEL)" --workspace-mode "$(WORKSPACE_MODE)" --output-root "$(OUTPUT_ROOT)" --network-authorization "$(NETWORK_AUTHORIZATION)" --tool-timeout "$(TOOL_TIMEOUT)"; \
+	fi
+
+.PHONY: m15
+m15: py-compile audit-static
+	@echo ""
+	@echo "M15 formal audit-static flow validation completed."
+
 .PHONY: fast-static
 fast-static: check-deps
 	@test -n "$(PROJECT_PATH)" || (echo "PROJECT_PATH is required. Example: make fast-static PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project'"; exit 2)
@@ -293,7 +311,7 @@ clean-env:
 
 .PHONY: py-compile
 py-compile:
-	$(PYTHON) -m py_compile scripts/00_env_check.py scripts/05_check_deps.py scripts/10_run_init.py scripts/20_build_audit_map.py scripts/30_build_tool_plan.py scripts/31_stack_env_check.py scripts/32_build_tool_execution_plan.py scripts/33_run_tool_execution_plan.py scripts/34_import_tool_candidates.py scripts/35_merge_external_candidates.py scripts/40_build_evidence_pack.py scripts/50_run_static_tools.py scripts/60_build_candidates.py scripts/70_prepare_ai_triage.py scripts/72_build_context_pack.py scripts/74_prepare_deep_explore.py scripts/80_merge_results.py scripts/90_render_delivery.py scripts/95_validate_run.py scripts/100_fast_static.py scripts/110_collect_debug.py scripts/120_run_benchmark.py scripts/99_smoke_check.py
+	$(PYTHON) -m py_compile scripts/00_env_check.py scripts/05_check_deps.py scripts/10_run_init.py scripts/20_build_audit_map.py scripts/30_build_tool_plan.py scripts/31_stack_env_check.py scripts/32_build_tool_execution_plan.py scripts/33_run_tool_execution_plan.py scripts/34_import_tool_candidates.py scripts/35_merge_external_candidates.py scripts/40_build_evidence_pack.py scripts/50_run_static_tools.py scripts/60_build_candidates.py scripts/70_prepare_ai_triage.py scripts/72_build_context_pack.py scripts/74_prepare_deep_explore.py scripts/80_merge_results.py scripts/90_render_delivery.py scripts/95_validate_run.py scripts/100_fast_static.py scripts/110_collect_debug.py scripts/120_run_benchmark.py scripts/130_audit_static.py scripts/99_smoke_check.py
 
 .PHONY: status
 status:

@@ -1,0 +1,739 @@
+{
+  "schema_version": "env-check-0.1.0",
+  "checked_at": "2026-07-04T12:00:00+08:00",
+  "workbench": {
+    "tool_matrix_version": "tool-matrix-0.1.0",
+    "tool_matrix_path": "env/TOOL_MATRIX.yaml",
+    "env_check_mode": "core_only",
+    "debug_enabled": false,
+    "notes": [
+      "This is an example file. It does not represent a real machine.",
+      "Local real env-check results should use *.local.json and must not be committed."
+    ]
+  },
+  "host": {
+    "os": "macos",
+    "os_version": "example",
+    "arch": "arm64",
+    "shell": "zsh",
+    "path_separator": ":",
+    "path_entries_count": 12,
+    "home_path_record_policy": "redacted",
+    "runtime_context": "user"
+  },
+  "summary": {
+    "status": "degraded",
+    "core_ready": true,
+    "available_tools": 9,
+    "missing_tools": 1,
+    "blocked_tools": 0,
+    "skipped_tools": 0,
+    "error_tools": 0,
+    "required_for_workbench_missing": [],
+    "recommended_missing": [
+      "tar"
+    ],
+    "confirmation_items": []
+  },
+  "tools": {
+    "git": {
+      "tool_id": "git",
+      "display_name": "Git",
+      "category": "core",
+      "required_level": "required_for_workbench",
+      "status": "available",
+      "missing_policy": "block_workbench",
+      "version": "git version 2.x.x",
+      "version_ok": true,
+      "resolved_command": "git",
+      "resolved_path": "/usr/bin/git",
+      "resolved_path_redacted": "<SYSTEM_PATH>/git",
+      "install_scope": "system",
+      "manager": "system",
+      "instances": [
+        {
+          "instance_id": "git-system-001",
+          "command": "git",
+          "path": "/usr/bin/git",
+          "path_redacted": "<SYSTEM_PATH>/git",
+          "version": "git version 2.x.x",
+          "manager": "system",
+          "install_scope": "system",
+          "is_active": true,
+          "extra": {}
+        }
+      ],
+      "active_instance_id": "git-system-001",
+      "detection_records": [
+        {
+          "command": "git --version",
+          "command_redacted": "git --version",
+          "exit_code": 0,
+          "status": "success",
+          "stdout_summary": "git version 2.x.x",
+          "stderr_summary": null,
+          "duration_ms": 12,
+          "notes": []
+        },
+        {
+          "command": "command -v git",
+          "command_redacted": "command -v git",
+          "exit_code": 0,
+          "status": "success",
+          "stdout_summary": "/usr/bin/git",
+          "stderr_summary": null,
+          "duration_ms": 5,
+          "notes": []
+        }
+      ],
+      "permissions": {
+        "read_project": true,
+        "write_project": false,
+        "write_run_output": false,
+        "write_cache": true,
+        "network": false,
+        "start_service": false,
+        "dynamic_request": false,
+        "reverse_artifact": false,
+        "upload_external": false,
+        "write_external": false
+      },
+      "missing_impact": null,
+      "blocked_reason": null,
+      "skipped_reason": null,
+      "install_recommendation_ref": "env/INSTALL_GUIDE.md#3-macos-安装建议",
+      "notes": []
+    },
+    "rg": {
+      "tool_id": "rg",
+      "display_name": "ripgrep",
+      "category": "core",
+      "required_level": "required_for_workbench",
+      "status": "available",
+      "missing_policy": "block_workbench",
+      "version": "ripgrep 14.x.x",
+      "version_ok": true,
+      "resolved_command": "rg",
+      "resolved_path": "/opt/homebrew/bin/rg",
+      "resolved_path_redacted": "<USER_TOOL_PATH>/rg",
+      "install_scope": "user",
+      "manager": "brew",
+      "instances": [
+        {
+          "instance_id": "rg-user-001",
+          "command": "rg",
+          "path": "/opt/homebrew/bin/rg",
+          "path_redacted": "<USER_TOOL_PATH>/rg",
+          "version": "ripgrep 14.x.x",
+          "manager": "brew",
+          "install_scope": "user",
+          "is_active": true,
+          "extra": {}
+        }
+      ],
+      "active_instance_id": "rg-user-001",
+      "detection_records": [
+        {
+          "command": "rg --version",
+          "command_redacted": "rg --version",
+          "exit_code": 0,
+          "status": "success",
+          "stdout_summary": "ripgrep 14.x.x",
+          "stderr_summary": null,
+          "duration_ms": 10,
+          "notes": []
+        },
+        {
+          "command": "command -v rg",
+          "command_redacted": "command -v rg",
+          "exit_code": 0,
+          "status": "success",
+          "stdout_summary": "/opt/homebrew/bin/rg",
+          "stderr_summary": null,
+          "duration_ms": 4,
+          "notes": []
+        }
+      ],
+      "permissions": {
+        "read_project": true,
+        "write_project": false,
+        "write_run_output": true,
+        "write_cache": true,
+        "network": false,
+        "start_service": false,
+        "dynamic_request": false,
+        "reverse_artifact": false,
+        "upload_external": false,
+        "write_external": false
+      },
+      "missing_impact": null,
+      "blocked_reason": null,
+      "skipped_reason": null,
+      "install_recommendation_ref": "env/INSTALL_GUIDE.md#3-macos-安装建议",
+      "notes": []
+    },
+    "python3": {
+      "tool_id": "python3",
+      "display_name": "Python 3",
+      "category": "core",
+      "required_level": "required_for_workbench",
+      "status": "available_multiple",
+      "missing_policy": "block_workbench",
+      "version": "Python 3.11.x",
+      "version_ok": true,
+      "resolved_command": "python3",
+      "resolved_path": "/Users/example/.local/share/mise/installs/python/3.11/bin/python3",
+      "resolved_path_redacted": "<LOCAL_USER_PATH>/.local/share/mise/installs/python/3.11/bin/python3",
+      "install_scope": "user",
+      "manager": "mise",
+      "instances": [
+        {
+          "instance_id": "python3-mise-311",
+          "command": "python3",
+          "path": "/Users/example/.local/share/mise/installs/python/3.11/bin/python3",
+          "path_redacted": "<LOCAL_USER_PATH>/.local/share/mise/installs/python/3.11/bin/python3",
+          "version": "Python 3.11.x",
+          "manager": "mise",
+          "install_scope": "user",
+          "is_active": true,
+          "extra": {
+            "python_major": "3",
+            "python_minor": "11"
+          }
+        },
+        {
+          "instance_id": "python3-system-001",
+          "command": "python3",
+          "path": "/usr/bin/python3",
+          "path_redacted": "<SYSTEM_PATH>/python3",
+          "version": "Python 3.x",
+          "manager": "system",
+          "install_scope": "system",
+          "is_active": false,
+          "extra": {}
+        }
+      ],
+      "active_instance_id": "python3-mise-311",
+      "detection_records": [
+        {
+          "command": "python3 --version",
+          "command_redacted": "python3 --version",
+          "exit_code": 0,
+          "status": "success",
+          "stdout_summary": "Python 3.11.x",
+          "stderr_summary": null,
+          "duration_ms": 9,
+          "notes": []
+        },
+        {
+          "command": "command -v python3",
+          "command_redacted": "command -v python3",
+          "exit_code": 0,
+          "status": "success",
+          "stdout_summary": "/Users/example/.local/share/mise/installs/python/3.11/bin/python3",
+          "stderr_summary": null,
+          "duration_ms": 5,
+          "notes": [
+            "Path is redacted in business-facing outputs."
+          ]
+        }
+      ],
+      "permissions": {
+        "read_project": true,
+        "write_project": false,
+        "write_run_output": true,
+        "write_cache": true,
+        "network": false,
+        "start_service": false,
+        "dynamic_request": false,
+        "reverse_artifact": false,
+        "upload_external": false,
+        "write_external": false
+      },
+      "missing_impact": null,
+      "blocked_reason": null,
+      "skipped_reason": null,
+      "install_recommendation_ref": "env/INSTALL_GUIDE.md#3-macos-安装建议",
+      "notes": [
+        "Multiple Python instances detected. Active instance is managed by mise."
+      ]
+    },
+    "bash": {
+      "tool_id": "bash",
+      "display_name": "Bash",
+      "category": "core",
+      "required_level": "required_for_workbench",
+      "status": "available",
+      "missing_policy": "block_workbench",
+      "version": "GNU bash, version 5.x.x",
+      "version_ok": true,
+      "resolved_command": "bash",
+      "resolved_path": "/opt/homebrew/bin/bash",
+      "resolved_path_redacted": "<USER_TOOL_PATH>/bash",
+      "install_scope": "user",
+      "manager": "brew",
+      "instances": [
+        {
+          "instance_id": "bash-user-001",
+          "command": "bash",
+          "path": "/opt/homebrew/bin/bash",
+          "path_redacted": "<USER_TOOL_PATH>/bash",
+          "version": "GNU bash, version 5.x.x",
+          "manager": "brew",
+          "install_scope": "user",
+          "is_active": true,
+          "extra": {}
+        }
+      ],
+      "active_instance_id": "bash-user-001",
+      "detection_records": [
+        {
+          "command": "bash --version",
+          "command_redacted": "bash --version",
+          "exit_code": 0,
+          "status": "success",
+          "stdout_summary": "GNU bash, version 5.x.x",
+          "stderr_summary": null,
+          "duration_ms": 8,
+          "notes": []
+        },
+        {
+          "command": "command -v bash",
+          "command_redacted": "command -v bash",
+          "exit_code": 0,
+          "status": "success",
+          "stdout_summary": "/opt/homebrew/bin/bash",
+          "stderr_summary": null,
+          "duration_ms": 4,
+          "notes": []
+        }
+      ],
+      "permissions": {
+        "read_project": true,
+        "write_project": false,
+        "write_run_output": true,
+        "write_cache": true,
+        "network": false,
+        "start_service": false,
+        "dynamic_request": false,
+        "reverse_artifact": false,
+        "upload_external": false,
+        "write_external": false
+      },
+      "missing_impact": null,
+      "blocked_reason": null,
+      "skipped_reason": null,
+      "install_recommendation_ref": "env/INSTALL_GUIDE.md#3-macos-安装建议",
+      "notes": []
+    },
+    "find": {
+      "tool_id": "find",
+      "display_name": "find",
+      "category": "core",
+      "required_level": "required_for_workbench",
+      "status": "available",
+      "missing_policy": "block_workbench",
+      "version": null,
+      "version_ok": null,
+      "resolved_command": "find",
+      "resolved_path": "/usr/bin/find",
+      "resolved_path_redacted": "<SYSTEM_PATH>/find",
+      "install_scope": "system",
+      "manager": "system",
+      "instances": [
+        {
+          "instance_id": "find-system-001",
+          "command": "find",
+          "path": "/usr/bin/find",
+          "path_redacted": "<SYSTEM_PATH>/find",
+          "version": null,
+          "manager": "system",
+          "install_scope": "system",
+          "is_active": true,
+          "extra": {
+            "version_command_supported": false
+          }
+        }
+      ],
+      "active_instance_id": "find-system-001",
+      "detection_records": [
+        {
+          "command": "command -v find",
+          "command_redacted": "command -v find",
+          "exit_code": 0,
+          "status": "success",
+          "stdout_summary": "/usr/bin/find",
+          "stderr_summary": null,
+          "duration_ms": 4,
+          "notes": []
+        },
+        {
+          "command": "find --version",
+          "command_redacted": "find --version",
+          "exit_code": 1,
+          "status": "failed",
+          "stdout_summary": null,
+          "stderr_summary": "BSD find may not support --version",
+          "duration_ms": 6,
+          "notes": [
+            "Command exists. Version command failure does not mean tool is unavailable."
+          ]
+        }
+      ],
+      "permissions": {
+        "read_project": true,
+        "write_project": false,
+        "write_run_output": true,
+        "write_cache": true,
+        "network": false,
+        "start_service": false,
+        "dynamic_request": false,
+        "reverse_artifact": false,
+        "upload_external": false,
+        "write_external": false
+      },
+      "missing_impact": null,
+      "blocked_reason": null,
+      "skipped_reason": null,
+      "install_recommendation_ref": "env/INSTALL_GUIDE.md#3-macos-安装建议",
+      "notes": [
+        "Version command is not required for availability."
+      ]
+    },
+    "grep": {
+      "tool_id": "grep",
+      "display_name": "grep",
+      "category": "core",
+      "required_level": "required_for_workbench",
+      "status": "available",
+      "missing_policy": "block_workbench",
+      "version": null,
+      "version_ok": null,
+      "resolved_command": "grep",
+      "resolved_path": "/usr/bin/grep",
+      "resolved_path_redacted": "<SYSTEM_PATH>/grep",
+      "install_scope": "system",
+      "manager": "system",
+      "instances": [
+        {
+          "instance_id": "grep-system-001",
+          "command": "grep",
+          "path": "/usr/bin/grep",
+          "path_redacted": "<SYSTEM_PATH>/grep",
+          "version": null,
+          "manager": "system",
+          "install_scope": "system",
+          "is_active": true,
+          "extra": {
+            "version_command_supported": false
+          }
+        }
+      ],
+      "active_instance_id": "grep-system-001",
+      "detection_records": [
+        {
+          "command": "command -v grep",
+          "command_redacted": "command -v grep",
+          "exit_code": 0,
+          "status": "success",
+          "stdout_summary": "/usr/bin/grep",
+          "stderr_summary": null,
+          "duration_ms": 4,
+          "notes": []
+        }
+      ],
+      "permissions": {
+        "read_project": true,
+        "write_project": false,
+        "write_run_output": true,
+        "write_cache": true,
+        "network": false,
+        "start_service": false,
+        "dynamic_request": false,
+        "reverse_artifact": false,
+        "upload_external": false,
+        "write_external": false
+      },
+      "missing_impact": null,
+      "blocked_reason": null,
+      "skipped_reason": null,
+      "install_recommendation_ref": "env/INSTALL_GUIDE.md#3-macos-安装建议",
+      "notes": []
+    },
+    "sed": {
+      "tool_id": "sed",
+      "display_name": "sed",
+      "category": "core",
+      "required_level": "required_for_workbench",
+      "status": "available",
+      "missing_policy": "block_workbench",
+      "version": null,
+      "version_ok": null,
+      "resolved_command": "sed",
+      "resolved_path": "/usr/bin/sed",
+      "resolved_path_redacted": "<SYSTEM_PATH>/sed",
+      "install_scope": "system",
+      "manager": "system",
+      "instances": [
+        {
+          "instance_id": "sed-system-001",
+          "command": "sed",
+          "path": "/usr/bin/sed",
+          "path_redacted": "<SYSTEM_PATH>/sed",
+          "version": null,
+          "manager": "system",
+          "install_scope": "system",
+          "is_active": true,
+          "extra": {
+            "version_command_supported": false
+          }
+        }
+      ],
+      "active_instance_id": "sed-system-001",
+      "detection_records": [
+        {
+          "command": "command -v sed",
+          "command_redacted": "command -v sed",
+          "exit_code": 0,
+          "status": "success",
+          "stdout_summary": "/usr/bin/sed",
+          "stderr_summary": null,
+          "duration_ms": 4,
+          "notes": []
+        }
+      ],
+      "permissions": {
+        "read_project": true,
+        "write_project": false,
+        "write_run_output": true,
+        "write_cache": true,
+        "network": false,
+        "start_service": false,
+        "dynamic_request": false,
+        "reverse_artifact": false,
+        "upload_external": false,
+        "write_external": false
+      },
+      "missing_impact": null,
+      "blocked_reason": null,
+      "skipped_reason": null,
+      "install_recommendation_ref": "env/INSTALL_GUIDE.md#3-macos-安装建议",
+      "notes": []
+    },
+    "awk": {
+      "tool_id": "awk",
+      "display_name": "awk",
+      "category": "core",
+      "required_level": "required_for_workbench",
+      "status": "available",
+      "missing_policy": "block_workbench",
+      "version": null,
+      "version_ok": null,
+      "resolved_command": "awk",
+      "resolved_path": "/usr/bin/awk",
+      "resolved_path_redacted": "<SYSTEM_PATH>/awk",
+      "install_scope": "system",
+      "manager": "system",
+      "instances": [
+        {
+          "instance_id": "awk-system-001",
+          "command": "awk",
+          "path": "/usr/bin/awk",
+          "path_redacted": "<SYSTEM_PATH>/awk",
+          "version": null,
+          "manager": "system",
+          "install_scope": "system",
+          "is_active": true,
+          "extra": {
+            "version_command_supported": false
+          }
+        }
+      ],
+      "active_instance_id": "awk-system-001",
+      "detection_records": [
+        {
+          "command": "command -v awk",
+          "command_redacted": "command -v awk",
+          "exit_code": 0,
+          "status": "success",
+          "stdout_summary": "/usr/bin/awk",
+          "stderr_summary": null,
+          "duration_ms": 4,
+          "notes": []
+        }
+      ],
+      "permissions": {
+        "read_project": true,
+        "write_project": false,
+        "write_run_output": true,
+        "write_cache": true,
+        "network": false,
+        "start_service": false,
+        "dynamic_request": false,
+        "reverse_artifact": false,
+        "upload_external": false,
+        "write_external": false
+      },
+      "missing_impact": null,
+      "blocked_reason": null,
+      "skipped_reason": null,
+      "install_recommendation_ref": "env/INSTALL_GUIDE.md#3-macos-安装建议",
+      "notes": []
+    },
+    "jq": {
+      "tool_id": "jq",
+      "display_name": "jq",
+      "category": "core",
+      "required_level": "recommended_for_static",
+      "status": "available",
+      "missing_policy": "record_missing_not_blocking",
+      "version": "jq-1.x",
+      "version_ok": true,
+      "resolved_command": "jq",
+      "resolved_path": "/opt/homebrew/bin/jq",
+      "resolved_path_redacted": "<USER_TOOL_PATH>/jq",
+      "install_scope": "user",
+      "manager": "brew",
+      "instances": [
+        {
+          "instance_id": "jq-user-001",
+          "command": "jq",
+          "path": "/opt/homebrew/bin/jq",
+          "path_redacted": "<USER_TOOL_PATH>/jq",
+          "version": "jq-1.x",
+          "manager": "brew",
+          "install_scope": "user",
+          "is_active": true,
+          "extra": {}
+        }
+      ],
+      "active_instance_id": "jq-user-001",
+      "detection_records": [
+        {
+          "command": "jq --version",
+          "command_redacted": "jq --version",
+          "exit_code": 0,
+          "status": "success",
+          "stdout_summary": "jq-1.x",
+          "stderr_summary": null,
+          "duration_ms": 6,
+          "notes": []
+        }
+      ],
+      "permissions": {
+        "read_project": false,
+        "write_project": false,
+        "write_run_output": true,
+        "write_cache": true,
+        "network": false,
+        "start_service": false,
+        "dynamic_request": false,
+        "reverse_artifact": false,
+        "upload_external": false,
+        "write_external": false
+      },
+      "missing_impact": null,
+      "blocked_reason": null,
+      "skipped_reason": null,
+      "install_recommendation_ref": "env/INSTALL_GUIDE.md#3-macos-安装建议",
+      "notes": []
+    },
+    "tar": {
+      "tool_id": "tar",
+      "display_name": "tar",
+      "category": "core",
+      "required_level": "recommended_for_static",
+      "status": "missing",
+      "missing_policy": "record_missing_not_blocking",
+      "version": null,
+      "version_ok": null,
+      "resolved_command": null,
+      "resolved_path": null,
+      "resolved_path_redacted": null,
+      "install_scope": "not_installed",
+      "manager": "not_installed",
+      "instances": [],
+      "active_instance_id": null,
+      "detection_records": [
+        {
+          "command": "command -v tar",
+          "command_redacted": "command -v tar",
+          "exit_code": 1,
+          "status": "failed",
+          "stdout_summary": null,
+          "stderr_summary": null,
+          "duration_ms": 5,
+          "notes": []
+        }
+      ],
+      "permissions": {
+        "read_project": false,
+        "write_project": false,
+        "write_run_output": true,
+        "write_cache": true,
+        "network": false,
+        "start_service": false,
+        "dynamic_request": false,
+        "reverse_artifact": false,
+        "upload_external": false,
+        "write_external": false
+      },
+      "missing_impact": "Artifact packaging may be unavailable, but SAST-only audit can continue.",
+      "blocked_reason": null,
+      "skipped_reason": null,
+      "install_recommendation_ref": "env/INSTALL_GUIDE.md#3-macos-安装建议",
+      "notes": [
+        "This example intentionally marks tar as missing to demonstrate degraded but usable env-check status."
+      ]
+    }
+  },
+  "stacks": {
+    "all": {
+      "stack_id": "all",
+      "status": "usable",
+      "required_tools": [
+        "git",
+        "rg",
+        "python3",
+        "bash",
+        "find",
+        "grep",
+        "sed",
+        "awk"
+      ],
+      "available_required_tools": [
+        "git",
+        "rg",
+        "python3",
+        "bash",
+        "find",
+        "grep",
+        "sed",
+        "awk"
+      ],
+      "missing_required_tools": [],
+      "recommended_tools": [
+        "jq",
+        "tar"
+      ],
+      "missing_recommended_tools": [
+        "tar"
+      ],
+      "impact": "Workbench can start. Artifact packaging may be unavailable because tar is missing."
+    }
+  },
+  "permission_summary": {
+    "network_default_allowed": false,
+    "write_project_default_allowed": false,
+    "start_service_default_allowed": false,
+    "dynamic_request_default_allowed": false,
+    "reverse_artifact_default_allowed": false,
+    "upload_external_default_allowed": false,
+    "write_external_default_allowed": false
+  },
+  "redaction": {
+    "local_paths_redacted": true,
+    "secrets_redacted": true,
+    "redaction_warnings": []
+  }
+}

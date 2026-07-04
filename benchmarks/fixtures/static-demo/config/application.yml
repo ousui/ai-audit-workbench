@@ -1,0 +1,11 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    username: demo_user
+    password: benchmark_demo_password
+
+security:
+  jwt_secret: benchmark_demo_jwt_secret
+  api_key: benchmark_demo_api_key

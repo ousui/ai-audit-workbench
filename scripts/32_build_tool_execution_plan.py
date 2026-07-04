@@ -72,7 +72,7 @@ def command(tool_id: str, profile: str, output_dir: str) -> list[dict[str, Any]]
             {"command_id": "mvn-dependency-check", "shell": f"mvn dependency-check:check -Dformat=JSON -DoutputDirectory={out}", "output_files": [f"{out}/dependency-check-report.json"], "network_required": True},
         ],
         ("gradle", "online"): [
-            {"command_id": "gradle-dependency-check", "shell": f"./gradlew dependencyCheckAnalyze || gradle dependencyCheckAnalyze", "output_files": [], "network_required": True},
+            {"command_id": "gradle-dependency-check", "shell": "./gradlew dependencyCheckAnalyze || gradle dependencyCheckAnalyze", "output_files": [], "network_required": True},
         ],
     }
     return templates.get((tool_id, profile), [])
@@ -108,9 +108,9 @@ def build_plan(run_root: Path) -> dict[str, Any]:
             })
             continue
         for profile in ["offline", "online"]:
-            out_dir = base_output / tool_id / profile
+            out_dir = (base_output / tool_id / profile).resolve()
             output_dir_rel = rel(out_dir)
-            commands = command(tool_id, profile, output_dir_rel)
+            commands = command(tool_id, profile, str(out_dir))
             if not commands:
                 continue
             if profile == "online" and not online_allowed:
@@ -124,6 +124,7 @@ def build_plan(run_root: Path) -> dict[str, Any]:
                     "commands": commands,
                     "cwd": str(project_root),
                     "output_dir": output_dir_rel,
+                    "output_dir_abs": str(out_dir),
                 })
                 continue
             items.append({
@@ -136,6 +137,7 @@ def build_plan(run_root: Path) -> dict[str, Any]:
                 "commands": commands,
                 "cwd": str(project_root),
                 "output_dir": output_dir_rel,
+                "output_dir_abs": str(out_dir),
                 "result_parser": f"{tool_id}:{profile}",
                 "candidate_mapping": "tool-output-normalization",
             })

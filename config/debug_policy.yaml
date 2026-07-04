@@ -1,0 +1,259 @@
+schema_version: "debug-policy-0.1.0"
+
+description: >
+  Debug mode is used to observe, trace, troubleshoot, and improve the audit workbench.
+  It is not a business audit conclusion, not dynamic testing, and not vulnerability verification.
+
+principles:
+  - Debug mode records how the workbench runs, not just what the audit found.
+  - Debug mode must never change audit conclusions by itself.
+  - Debug mode must never expand tool permissions.
+  - Debug mode must never write into audited source code.
+  - Debug artifacts must not enter business-facing reports by default.
+  - Debug artifacts may be used for process review, workflow tuning, and tool validation.
+  - Debug mode must redact secrets, tokens, credentials, and local personal paths whenever possible.
+
+default:
+  enabled: false
+  level: "off"
+  write_debug_artifacts: false
+  include_raw_tool_output: false
+  include_ai_prompt_input: false
+  include_ai_raw_output: false
+  include_source_snippets: false
+  redact_sensitive_values: true
+  redact_local_paths: true
+
+levels:
+  off:
+    description: "No debug artifacts are generated."
+    write_debug_artifacts: false
+
+  basic:
+    description: >
+      Records high-level execution trace, tool plan, command exit status,
+      artifact inventory, timings, skipped items, and blocked items.
+    write_debug_artifacts: true
+    include_raw_tool_output: false
+    include_ai_prompt_input: false
+    include_ai_raw_output: false
+    include_source_snippets: false
+    intended_use:
+      - "Daily audit process observation"
+      - "Check whether the workflow executed as expected"
+      - "Reduce unnecessary human interruption"
+
+  trace:
+    description: >
+      Records detailed process trace for workflow debugging.
+      This level may include command stdout/stderr summaries, normalized tool outputs,
+      AI input/output references, hashes, schema validation details, and candidate flow.
+    write_debug_artifacts: true
+    include_raw_tool_output: true
+    include_ai_prompt_input: "redacted"
+    include_ai_raw_output: "redacted"
+    include_source_snippets: "redacted_context_only"
+    intended_use:
+      - "Debug unstable workflow behavior"
+      - "Inspect candidate generation and merge decisions"
+      - "Analyze AI triage instability"
+      - "Improve scripts, prompts, schemas, and rules"
+
+  replay:
+    description: >
+      Reserved for future deterministic replay.
+      Replay mode should allow rerunning workflow steps from saved sanitized inputs.
+    enabled: false
+    intended_use:
+      - "Regression testing"
+      - "Benchmarking"
+      - "Workflow change validation"
+
+artifact_policy:
+  base_dir: "runs/{run_id}/debug"
+
+  allowed_files:
+    - "DEBUG_SUMMARY.md"
+    - "COMMAND_TRACE.jsonl"
+    - "TOOL_PLAN_TRACE.json"
+    - "ARTIFACT_MANIFEST.json"
+    - "AI_TRACE_INDEX.json"
+    - "CANDIDATE_FLOW_TRACE.json"
+    - "MERGE_TRACE.json"
+    - "VALIDATION_TRACE.json"
+    - "BLOCKED_SKIPPED_TRACE.json"
+
+  forbidden_locations:
+    - "projects/"
+    - "audited source directory"
+    - "business delivery report"
+    - "business tracking table"
+    - "external upload target"
+
+  git_policy:
+    commit_debug_artifacts: false
+    commit_debug_policy: true
+
+trace_items:
+  run_metadata:
+    enabled: true
+    fields:
+      - "run_id"
+      - "audit_mode"
+      - "debug_level"
+      - "project_key"
+      - "branch"
+      - "commit"
+      - "started_at"
+      - "finished_at"
+      - "duration_ms"
+
+  environment_snapshot:
+    enabled: true
+    fields:
+      - "tool_matrix_version"
+      - "env_check_result_hash"
+      - "selected_tools"
+      - "missing_tools"
+      - "blocked_tools"
+      - "skipped_tools"
+    include_local_paths: "redacted"
+
+  command_trace:
+    enabled: true
+    fields:
+      - "step"
+      - "tool"
+      - "command_redacted"
+      - "cwd_redacted"
+      - "exit_code"
+      - "duration_ms"
+      - "stdout_summary"
+      - "stderr_summary"
+      - "output_artifact_refs"
+    include_full_stdout: false
+    include_full_stderr: false
+
+  tool_output_trace:
+    enabled_when_level:
+      - "trace"
+    fields:
+      - "tool"
+      - "raw_output_path"
+      - "normalized_output_path"
+      - "raw_output_hash"
+      - "normalized_output_hash"
+      - "item_count"
+      - "error_count"
+      - "blocked_reason"
+
+  ai_trace:
+    enabled: true
+    fields:
+      - "ai_tool"
+      - "model_or_runtime"
+      - "prompt_file"
+      - "input_ref"
+      - "input_hash"
+      - "output_ref"
+      - "output_hash"
+      - "schema_validation_status"
+      - "decision_count"
+      - "invalid_output_count"
+    include_prompt_text: false
+    include_full_ai_output: false
+
+  candidate_flow:
+    enabled: true
+    fields:
+      - "candidate_id"
+      - "source"
+      - "risk_type"
+      - "initial_status"
+      - "ai_decision"
+      - "merge_decision"
+      - "report_inclusion"
+      - "drop_or_merge_reason"
+
+  validation_trace:
+    enabled: true
+    fields:
+      - "validator_name"
+      - "status"
+      - "error_count"
+      - "warning_count"
+      - "failed_rules"
+      - "suggested_fix_scope"
+
+redaction_policy:
+  redact_values_matching:
+    - "password"
+    - "passwd"
+    - "pwd"
+    - "secret"
+    - "token"
+    - "access_key"
+    - "api_key"
+    - "private_key"
+    - "authorization"
+    - "cookie"
+    - "session"
+    - "jwt"
+
+  redact_path_patterns:
+    - "/Users/*"
+    - "/home/*"
+    - "C:\\Users\\*"
+
+  replacement:
+    secret_value: "<REDACTED_SECRET>"
+    local_user_path: "<LOCAL_USER_PATH>"
+    token_value: "<REDACTED_TOKEN>"
+
+permission_policy:
+  debug_mode_does_not_grant_permissions: true
+
+  default_allowed_without_extra_confirmation:
+    - "read_project"
+    - "write_run_output"
+    - "write_cache"
+    - "execute_local_non_network_tool"
+
+  still_requires_confirmation:
+    - "network"
+    - "download_rules"
+    - "query_external_service"
+    - "start_service"
+    - "dynamic_request"
+    - "reverse_artifact"
+    - "upload_external"
+    - "write_external"
+    - "write_project"
+
+delivery_policy:
+  include_debug_summary_in_business_report: false
+  include_debug_artifacts_in_delivery: false
+
+  allowed_internal_use:
+    - "workflow troubleshooting"
+    - "tool matrix correction"
+    - "prompt improvement"
+    - "schema improvement"
+    - "candidate generation improvement"
+    - "merge rule improvement"
+    - "audit benchmark and regression testing"
+
+workflow_improvement_policy:
+  debug_artifacts_can_suggest_changes: true
+  debug_artifacts_cannot_apply_changes: true
+  any_workflow_change_must_follow_change_policy: true
+
+  improvement_review_outputs:
+    - "observed_issue"
+    - "root_cause"
+    - "affected_step"
+    - "suggested_change"
+    - "affected_files"
+    - "risk"
+    - "rollback_plan"
+    - "validation_plan"

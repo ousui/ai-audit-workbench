@@ -43,6 +43,7 @@ def main(argv: list[str]) -> int:
     run_root = ROOT / "runs" / project_key / run_id
 
     steps = [
+        [sys.executable, "scripts/05_check_deps.py", "--strict", "--print-summary"],
         [sys.executable, "scripts/10_run_init.py", "--project-path", args.project_path, "--project-code", args.project_code, "--project-name", args.project_name, "--audit-mode", "FAST_STATIC", "--round", args.round, "--debug-level", args.debug_level, "--run-id", run_id, "--print-summary"],
         [sys.executable, "scripts/20_build_audit_map.py", "--run-root", str(run_root), "--print-summary"],
         [sys.executable, "scripts/30_build_tool_plan.py", "--run-root", str(run_root), "--print-summary"],

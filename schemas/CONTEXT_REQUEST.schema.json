@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bdg.local/ai-audit-workbench/schemas/CONTEXT_REQUEST.schema.json",
+  "title": "AI Context Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "mode", "requests"],
+  "properties": {
+    "schema_version": {"type": "string", "const": "context-request-0.1.0"},
+    "mode": {"type": "string", "enum": ["STANDARD_STATIC"]},
+    "requests": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/request"}
+    },
+    "notes": {"type": "array", "items": {"type": "string"}, "default": []}
+  },
+  "$defs": {
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["request_id", "reason", "files"],
+      "properties": {
+        "request_id": {"type": "string"},
+        "candidate_id": {"type": ["string", "null"], "default": null},
+        "reason": {"type": "string"},
+        "files": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/file_request"}
+        }
+      }
+    },
+    "file_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path"],
+      "properties": {
+        "path": {"type": "string"},
+        "line_start": {"type": ["integer", "null"], "minimum": 1, "default": null},
+        "line_end": {"type": ["integer", "null"], "minimum": 1, "default": null},
+        "max_bytes": {"type": "integer", "minimum": 1000, "default": 50000}
+      }
+    }
+  }
+}

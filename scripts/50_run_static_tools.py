@@ -27,7 +27,17 @@ FALLBACK_RECIPES = [
         "confidence_hint": "medium",
         "include_exts": [".env", ".properties", ".yml", ".yaml", ".json", ".js", ".ts", ".java", ".go", ".php", ".py", ".dart", ".swift", ".kt"],
         "patterns": ["password", "passwd", "pwd", "secret", "api_key", "apikey", "access_key", "private_key", "token", "jwt"],
-        "negative_evidence_required": ["是否只是变量名、注释、示例或测试数据", "是否包含真实值或可用凭据", "是否已通过安全配置注入"],
+        "negative_evidence_required": ["是否只是变量名、注释、示例或测试数据", "是否包含真实值或可用凭据", "是否已通过环境变量、密钥管理或配置中心注入", "如为真实密钥，是否已轮换"],
+    },
+    {
+        "recipe_id": "ENV_FILE_TRACKED",
+        "title": "环境配置文件纳入审计范围",
+        "risk_type": "configuration_exposure",
+        "severity_hint": "P2",
+        "confidence_hint": "medium",
+        "filename_patterns": [r"^\.env(\..*)?$"],
+        "patterns": [".*"],
+        "negative_evidence_required": ["文件是否仅包含模板占位符", "文件是否为 example/sample 模板", "是否含真实环境地址、账号、密钥或 Token"],
     },
     {
         "recipe_id": "SQL_DYNAMIC_CONSTRUCTION",
@@ -37,7 +47,37 @@ FALLBACK_RECIPES = [
         "confidence_hint": "medium",
         "include_exts": [".go", ".java", ".xml", ".php", ".py", ".js", ".ts"],
         "patterns": ["fmt.Sprintf", "whereRaw", "DB::raw", "createNativeQuery", "Statement", "${", "ORDER BY"],
-        "negative_evidence_required": ["参数是否来自用户输入", "是否使用参数化查询", "动态字段是否有白名单"],
+        "negative_evidence_required": ["参数是否来自用户输入", "是否使用参数化查询", "动态字段是否有白名单", "是否仅为内部固定枚举"],
+    },
+    {
+        "recipe_id": "FILE_IO_SURFACE",
+        "title": "文件上传下载或路径处理入口",
+        "risk_type": "file_io_candidate",
+        "severity_hint": "P2",
+        "confidence_hint": "medium",
+        "include_exts": [".go", ".java", ".php", ".py", ".js", ".ts", ".dart", ".swift", ".kt"],
+        "patterns": ["upload", "download", "MultipartFile", "FormFile", "FileOutputStream", "filepath.Join", "readFile", "writeFile"],
+        "negative_evidence_required": ["是否校验扩展名白名单", "是否校验文件大小和类型", "是否规范化路径并校验最终目录前缀", "是否避免使用原始文件名作为存储名"],
+    },
+    {
+        "recipe_id": "FRONTEND_STORAGE",
+        "title": "前端或客户端本地存储线索",
+        "risk_type": "client_storage_candidate",
+        "severity_hint": "P2",
+        "confidence_hint": "medium",
+        "include_exts": [".js", ".ts", ".tsx", ".jsx", ".vue", ".dart", ".swift", ".kt", ".java"],
+        "patterns": ["localStorage", "sessionStorage", "document.cookie", "shared_preferences", "SharedPreferences", "UserDefaults"],
+        "negative_evidence_required": ["是否存储 Token、密码、身份标识或敏感业务数据", "是否仅存储非敏感 UI 状态", "是否使用 HttpOnly Cookie、Keychain、Keystore 或安全存储替代"],
+    },
+    {
+        "recipe_id": "BUSINESS_HIGH_RISK_KEYWORD",
+        "title": "高风险业务模块关键字",
+        "risk_type": "business_logic_review_candidate",
+        "severity_hint": "P2",
+        "confidence_hint": "low",
+        "include_exts": [".go", ".java", ".php", ".py", ".js", ".ts", ".vue", ".dart", ".swift", ".kt"],
+        "patterns": ["payment", "pay", "wallet", "withdraw", "refund", "coupon", "order", "callback", "notify", "webhook", "balance", "tenant"],
+        "negative_evidence_required": ["是否涉及资金、订单、状态流转或多租户隔离", "是否已存在服务端归属校验", "是否已存在签名校验、幂等控制或状态机约束"],
     },
 ]
 
@@ -95,18 +135,17 @@ def safe_read(path: Path, max_size: int) -> str | None:
 
 
 def load_recipes(path: Path) -> tuple[list[dict[str, Any]], list[str]]:
-    notes: list[str] = []
     if not path.is_file():
-        return FALLBACK_RECIPES, ["rules/recipes.yaml not found; using fallback recipes."]
+        return FALLBACK_RECIPES, ["rules/recipes.yaml not found; using built-in fallback recipes."]
     try:
         import yaml  # type: ignore
     except Exception:
-        return FALLBACK_RECIPES, ["PyYAML unavailable; using fallback recipes."]
+        return FALLBACK_RECIPES, ["PyYAML unavailable; using built-in fallback recipes."]
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     recipes = data.get("recipes") or []
     if not recipes:
-        return FALLBACK_RECIPES, ["No recipes found; using fallback recipes."]
-    return recipes, notes
+        return FALLBACK_RECIPES, ["No recipes found; using built-in fallback recipes."]
+    return recipes, []
 
 
 def filename_matches(path: Path, patterns: list[str]) -> bool:
@@ -209,6 +248,10 @@ def print_summary(result: dict[str, Any]) -> None:
     print(f"  files_scanned: {result['summary']['files_scanned']}")
     print(f"  files_skipped: {result['summary']['files_skipped']}")
     print(f"  total_hits: {result['summary']['total_hits']}")
+    if result.get("notes"):
+        print("  notes:")
+        for note in result["notes"]:
+            print(f"    - {note}")
 
 
 def main(argv: list[str]) -> int:
@@ -233,7 +276,10 @@ def main(argv: list[str]) -> int:
         print(f"[FAIL] project path unavailable: {project_path}", file=sys.stderr)
         return 2
 
-    recipes, notes = load_recipes((ROOT / args.recipes).resolve() if not Path(args.recipes).is_absolute() else Path(args.recipes))
+    recipes_path = Path(args.recipes)
+    if not recipes_path.is_absolute():
+        recipes_path = (ROOT / recipes_path).resolve()
+    recipes, notes = load_recipes(recipes_path)
     hits, stats = scan_project(project_path, recipes, args.max_file_size, args.per_recipe_limit)
     out_dir = run_root / "evidence"
     raw_dir = out_dir / "tool-outputs"

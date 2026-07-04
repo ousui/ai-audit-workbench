@@ -22,15 +22,22 @@ help:
 	@echo "  make smoke           Run workbench smoke check"
 	@echo "  make m0              Run env-summary and smoke"
 	@echo ""
-	@echo "M1-M6 static pipeline:"
+	@echo "M1-M10 FAST_STATIC pipeline:"
 	@echo "  make m1 PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project'"
 	@echo "  make m2 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
 	@echo "  make m3 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
 	@echo "  make m4 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
 	@echo "  make m5 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
 	@echo "  make m6 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
+	@echo "  make m7 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
+	@echo "  make m8 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
+	@echo "  make m9 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
+	@echo "  make m10 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
 	@echo ""
-	@echo "Direct targets: run-init, audit-map, tool-plan, evidence-pack, tool-run, candidates"
+	@echo "One-shot:"
+	@echo "  make fast-static PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project'"
+	@echo ""
+	@echo "Direct targets: run-init, audit-map, tool-plan, evidence-pack, tool-run, candidates, ai-triage, merge, delivery, validate-run"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  make clean-smoke     Remove tmp/smoke"
@@ -124,6 +131,56 @@ m6: py-compile candidates
 	@echo ""
 	@echo "M6 candidate-pool validation completed."
 
+.PHONY: ai-triage
+ai-triage:
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make ai-triage RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	$(PYTHON) scripts/70_prepare_ai_triage.py --run-root "$(RUN_ROOT)" --write-stub --print-summary
+
+.PHONY: m7
+m7: py-compile ai-triage
+	@echo ""
+	@echo "M7 AI triage input validation completed."
+
+.PHONY: merge
+merge:
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make merge RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	$(PYTHON) scripts/80_merge_results.py --run-root "$(RUN_ROOT)" --print-summary
+
+.PHONY: m8
+m8: py-compile merge
+	@echo ""
+	@echo "M8 merge validation completed."
+
+.PHONY: delivery
+delivery:
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make delivery RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	$(PYTHON) scripts/90_render_delivery.py --run-root "$(RUN_ROOT)" --print-summary
+
+.PHONY: m9
+m9: py-compile delivery
+	@echo ""
+	@echo "M9 delivery validation completed."
+
+.PHONY: validate-run
+validate-run:
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make validate-run RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	$(PYTHON) scripts/95_validate_run.py --run-root "$(RUN_ROOT)" --print-summary
+
+.PHONY: m10
+m10: py-compile validate-run
+	@echo ""
+	@echo "M10 validation completed."
+
+.PHONY: fast-static
+fast-static:
+	@test -n "$(PROJECT_PATH)" || (echo "PROJECT_PATH is required. Example: make fast-static PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project'"; exit 2)
+	$(PYTHON) scripts/100_fast_static.py \
+		--project-path "$(PROJECT_PATH)" \
+		--project-code "$(PROJECT_CODE)" \
+		--project-name "$(PROJECT_NAME)" \
+		--round "$(ROUND)" \
+		--debug-level "$(DEBUG_LEVEL)"
+
 .PHONY: clean-smoke
 clean-smoke:
 	rm -rf $(SMOKE_RESULT_DIR)
@@ -134,7 +191,7 @@ clean-env:
 
 .PHONY: py-compile
 py-compile:
-	$(PYTHON) -m py_compile scripts/00_env_check.py scripts/10_run_init.py scripts/20_build_audit_map.py scripts/30_build_tool_plan.py scripts/40_build_evidence_pack.py scripts/50_run_static_tools.py scripts/60_build_candidates.py scripts/99_smoke_check.py
+	$(PYTHON) -m py_compile scripts/00_env_check.py scripts/10_run_init.py scripts/20_build_audit_map.py scripts/30_build_tool_plan.py scripts/40_build_evidence_pack.py scripts/50_run_static_tools.py scripts/60_build_candidates.py scripts/70_prepare_ai_triage.py scripts/80_merge_results.py scripts/90_render_delivery.py scripts/95_validate_run.py scripts/100_fast_static.py scripts/99_smoke_check.py
 
 .PHONY: status
 status:

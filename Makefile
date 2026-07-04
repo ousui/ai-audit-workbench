@@ -10,6 +10,7 @@ PROJECT_NAME ?=
 AUDIT_MODE ?= FAST_STATIC
 ROUND ?= R1
 DEBUG_LEVEL ?= off
+RUN_ROOT ?=
 
 .PHONY: help
 help:
@@ -24,6 +25,10 @@ help:
 	@echo "M1 run-init:"
 	@echo "  make run-init PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project'"
 	@echo "  make m1 PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project'"
+	@echo ""
+	@echo "M2 audit-map:"
+	@echo "  make audit-map RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
+	@echo "  make m2 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  make clean-smoke     Remove tmp/smoke"
@@ -67,6 +72,16 @@ m1: py-compile run-init
 	@echo ""
 	@echo "M1 run-init validation completed."
 
+.PHONY: audit-map
+audit-map:
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make audit-map RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	$(PYTHON) scripts/20_build_audit_map.py --run-root "$(RUN_ROOT)" --print-summary
+
+.PHONY: m2
+m2: py-compile audit-map
+	@echo ""
+	@echo "M2 audit-map validation completed."
+
 .PHONY: clean-smoke
 clean-smoke:
 	rm -rf $(SMOKE_RESULT_DIR)
@@ -77,7 +92,7 @@ clean-env:
 
 .PHONY: py-compile
 py-compile:
-	$(PYTHON) -m py_compile scripts/00_env_check.py scripts/10_run_init.py scripts/99_smoke_check.py
+	$(PYTHON) -m py_compile scripts/00_env_check.py scripts/10_run_init.py scripts/20_build_audit_map.py scripts/99_smoke_check.py
 
 .PHONY: status
 status:

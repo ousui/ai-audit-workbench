@@ -52,7 +52,7 @@ help:
 	@echo "One-shot:"
 	@echo "  make fast-static PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project' NETWORK_AUTHORIZATION=once"
 	@echo ""
-	@echo "Direct targets: run-init, audit-map, stack-env-check, tool-plan, tool-plan-stack, tool-execution-plan, ext-tool-run, ext-tool-candidates, evidence-pack, tool-run, candidates, ai-triage, merge, delivery, validate-run, debug-trace, benchmark, context-pack, deep-explore-input"
+	@echo "Direct targets: run-init, audit-map, stack-env-check, tool-plan, tool-plan-stack, tool-execution-plan, ext-tool-run, ext-tool-candidates, merge-external-candidates, evidence-pack, tool-run, candidates, ai-triage, merge, delivery, validate-run, debug-trace, benchmark, context-pack, deep-explore-input"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  make clean-smoke     Remove tmp/smoke"
@@ -260,10 +260,15 @@ ext-tool-candidates:
 	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make ext-tool-candidates RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
 	$(PYTHON) scripts/34_import_tool_candidates.py --run-root "$(RUN_ROOT)" --print-summary
 
+.PHONY: merge-external-candidates
+merge-external-candidates:
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make merge-external-candidates RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	$(PYTHON) scripts/35_merge_external_candidates.py --run-root "$(RUN_ROOT)" --print-summary
+
 .PHONY: m14
-m14: py-compile stack-env-check tool-plan-stack tool-execution-plan ext-tool-run ext-tool-candidates
+m14: py-compile stack-env-check tool-plan-stack tool-execution-plan ext-tool-run ext-tool-candidates merge-external-candidates
 	@echo ""
-	@echo "M14 stack env-check, external tool execution, and candidate import validation completed."
+	@echo "M14 stack env-check, external tool execution, candidate import, and candidate merge validation completed."
 
 .PHONY: fast-static
 fast-static: check-deps
@@ -288,7 +293,7 @@ clean-env:
 
 .PHONY: py-compile
 py-compile:
-	$(PYTHON) -m py_compile scripts/00_env_check.py scripts/05_check_deps.py scripts/10_run_init.py scripts/20_build_audit_map.py scripts/30_build_tool_plan.py scripts/31_stack_env_check.py scripts/32_build_tool_execution_plan.py scripts/33_run_tool_execution_plan.py scripts/34_import_tool_candidates.py scripts/40_build_evidence_pack.py scripts/50_run_static_tools.py scripts/60_build_candidates.py scripts/70_prepare_ai_triage.py scripts/72_build_context_pack.py scripts/74_prepare_deep_explore.py scripts/80_merge_results.py scripts/90_render_delivery.py scripts/95_validate_run.py scripts/100_fast_static.py scripts/110_collect_debug.py scripts/120_run_benchmark.py scripts/99_smoke_check.py
+	$(PYTHON) -m py_compile scripts/00_env_check.py scripts/05_check_deps.py scripts/10_run_init.py scripts/20_build_audit_map.py scripts/30_build_tool_plan.py scripts/31_stack_env_check.py scripts/32_build_tool_execution_plan.py scripts/33_run_tool_execution_plan.py scripts/34_import_tool_candidates.py scripts/35_merge_external_candidates.py scripts/40_build_evidence_pack.py scripts/50_run_static_tools.py scripts/60_build_candidates.py scripts/70_prepare_ai_triage.py scripts/72_build_context_pack.py scripts/74_prepare_deep_explore.py scripts/80_merge_results.py scripts/90_render_delivery.py scripts/95_validate_run.py scripts/100_fast_static.py scripts/110_collect_debug.py scripts/120_run_benchmark.py scripts/99_smoke_check.py
 
 .PHONY: status
 status:

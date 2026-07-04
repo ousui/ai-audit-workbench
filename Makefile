@@ -11,6 +11,7 @@ AUDIT_MODE ?= FAST_STATIC
 ROUND ?= R1
 DEBUG_LEVEL ?= off
 RUN_ROOT ?=
+BENCHMARK_ID ?= all
 
 .PHONY: help
 help:
@@ -22,7 +23,7 @@ help:
 	@echo "  make smoke           Run workbench smoke check"
 	@echo "  make m0              Run env-summary and smoke"
 	@echo ""
-	@echo "M1-M11 FAST_STATIC pipeline:"
+	@echo "M1-M12 FAST_STATIC pipeline:"
 	@echo "  make m1 PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project'"
 	@echo "  make m2 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
 	@echo "  make m3 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
@@ -34,11 +35,12 @@ help:
 	@echo "  make m9 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
 	@echo "  make m10 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
 	@echo "  make m11 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS DEBUG_LEVEL=basic"
+	@echo "  make m12"
 	@echo ""
 	@echo "One-shot:"
 	@echo "  make fast-static PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project'"
 	@echo ""
-	@echo "Direct targets: run-init, audit-map, tool-plan, evidence-pack, tool-run, candidates, ai-triage, merge, delivery, validate-run, debug-trace"
+	@echo "Direct targets: run-init, audit-map, tool-plan, evidence-pack, tool-run, candidates, ai-triage, merge, delivery, validate-run, debug-trace, benchmark"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  make clean-smoke     Remove tmp/smoke"
@@ -182,6 +184,15 @@ m11: py-compile debug-trace
 	@echo ""
 	@echo "M11 debug trace validation completed."
 
+.PHONY: benchmark
+benchmark:
+	$(PYTHON) scripts/120_run_benchmark.py --benchmark-id "$(BENCHMARK_ID)" --print-summary
+
+.PHONY: m12
+m12: py-compile benchmark
+	@echo ""
+	@echo "M12 benchmark validation completed."
+
 .PHONY: fast-static
 fast-static:
 	@test -n "$(PROJECT_PATH)" || (echo "PROJECT_PATH is required. Example: make fast-static PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project'"; exit 2)
@@ -202,7 +213,7 @@ clean-env:
 
 .PHONY: py-compile
 py-compile:
-	$(PYTHON) -m py_compile scripts/00_env_check.py scripts/10_run_init.py scripts/20_build_audit_map.py scripts/30_build_tool_plan.py scripts/40_build_evidence_pack.py scripts/50_run_static_tools.py scripts/60_build_candidates.py scripts/70_prepare_ai_triage.py scripts/80_merge_results.py scripts/90_render_delivery.py scripts/95_validate_run.py scripts/100_fast_static.py scripts/110_collect_debug.py scripts/99_smoke_check.py
+	$(PYTHON) -m py_compile scripts/00_env_check.py scripts/10_run_init.py scripts/20_build_audit_map.py scripts/30_build_tool_plan.py scripts/40_build_evidence_pack.py scripts/50_run_static_tools.py scripts/60_build_candidates.py scripts/70_prepare_ai_triage.py scripts/80_merge_results.py scripts/90_render_delivery.py scripts/95_validate_run.py scripts/100_fast_static.py scripts/110_collect_debug.py scripts/120_run_benchmark.py scripts/99_smoke_check.py
 
 .PHONY: status
 status:

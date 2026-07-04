@@ -1,0 +1,28 @@
+{
+  "benchmark_id": "STATIC_DEMO",
+  "project_code": "BENCH_STATIC_DEMO",
+  "description": "Small deterministic fixture used to validate FAST_STATIC pipeline coverage.",
+  "expected": {
+    "min_total_candidates": 5,
+    "required_risk_types": [
+      "sensitive_information",
+      "sql_injection_candidate",
+      "client_storage_candidate",
+      "file_io_candidate",
+      "business_logic_review_candidate"
+    ],
+    "required_output_files": [
+      "audit-map/AUDIT_MAP.json",
+      "evidence/TOOL_PLAN.json",
+      "evidence/EVIDENCE_PACK.json",
+      "evidence/TOOL_RUN_RESULT.json",
+      "candidates/CANDIDATE_POOL.json",
+      "ai/AI_TRIAGE_INPUT.json",
+      "ai/AI_TRIAGE_RESULT.json",
+      "merge/MERGE_RESULT.json",
+      "delivery/AUDIT_REPORT.md",
+      "delivery/AUDIT_TRACKING.csv",
+      "validate/VALIDATION_RESULT.json"
+    ]
+  }
+}

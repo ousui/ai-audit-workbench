@@ -30,6 +30,10 @@ help:
 	@echo "  make audit-map RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
 	@echo "  make m2 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
 	@echo ""
+	@echo "M3 tool-plan:"
+	@echo "  make tool-plan RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
+	@echo "  make m3 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
+	@echo ""
 	@echo "Cleanup:"
 	@echo "  make clean-smoke     Remove tmp/smoke"
 	@echo "  make clean-env       Remove local env-check result"
@@ -82,6 +86,16 @@ m2: py-compile audit-map
 	@echo ""
 	@echo "M2 audit-map validation completed."
 
+.PHONY: tool-plan
+tool-plan:
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make tool-plan RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	$(PYTHON) scripts/30_build_tool_plan.py --run-root "$(RUN_ROOT)" --env-result "$(ENV_CHECK_RESULT)" --print-summary
+
+.PHONY: m3
+m3: py-compile tool-plan
+	@echo ""
+	@echo "M3 tool-plan validation completed."
+
 .PHONY: clean-smoke
 clean-smoke:
 	rm -rf $(SMOKE_RESULT_DIR)
@@ -92,7 +106,7 @@ clean-env:
 
 .PHONY: py-compile
 py-compile:
-	$(PYTHON) -m py_compile scripts/00_env_check.py scripts/10_run_init.py scripts/20_build_audit_map.py scripts/99_smoke_check.py
+	$(PYTHON) -m py_compile scripts/00_env_check.py scripts/10_run_init.py scripts/20_build_audit_map.py scripts/30_build_tool_plan.py scripts/99_smoke_check.py
 
 .PHONY: status
 status:

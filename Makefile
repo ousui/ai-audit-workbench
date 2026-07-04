@@ -17,6 +17,10 @@ BENCHMARK_ID ?= all
 help:
 	@echo "AI Audit Workbench commands"
 	@echo ""
+	@echo "Dependencies:"
+	@echo "  make install-deps    Install Python dependencies from requirements.txt"
+	@echo "  make check-deps      Check required Python dependencies"
+	@echo ""
 	@echo "M0 env-check / smoke:"
 	@echo "  make env-check       Run core env-check and write env/ENV_CHECK_RESULT.local.json"
 	@echo "  make env-summary     Run core env-check and print summary"
@@ -49,6 +53,14 @@ help:
 	@echo "Developer checks:"
 	@echo "  make py-compile      Compile current Python scripts"
 	@echo "  make status          Show git status"
+
+.PHONY: install-deps
+install-deps:
+	$(PYTHON) -m pip install -r requirements.txt
+
+.PHONY: check-deps
+check-deps:
+	$(PYTHON) scripts/05_check_deps.py --strict --print-summary
 
 .PHONY: env-check
 env-check:
@@ -95,7 +107,7 @@ m2: py-compile audit-map
 	@echo "M2 audit-map validation completed."
 
 .PHONY: tool-plan
-tool-plan:
+tool-plan: check-deps
 	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make tool-plan RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
 	$(PYTHON) scripts/30_build_tool_plan.py --run-root "$(RUN_ROOT)" --env-result "$(ENV_CHECK_RESULT)" --print-summary
 
@@ -115,7 +127,7 @@ m4: py-compile evidence-pack
 	@echo "M4 evidence-pack validation completed."
 
 .PHONY: tool-run
-tool-run:
+tool-run: check-deps
 	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make tool-run RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
 	$(PYTHON) scripts/50_run_static_tools.py --run-root "$(RUN_ROOT)" --print-summary
 
@@ -185,7 +197,7 @@ m11: py-compile debug-trace
 	@echo "M11 debug trace validation completed."
 
 .PHONY: benchmark
-benchmark:
+benchmark: check-deps
 	$(PYTHON) scripts/120_run_benchmark.py --benchmark-id "$(BENCHMARK_ID)" --print-summary
 
 .PHONY: m12
@@ -194,7 +206,7 @@ m12: py-compile benchmark
 	@echo "M12 benchmark validation completed."
 
 .PHONY: fast-static
-fast-static:
+fast-static: check-deps
 	@test -n "$(PROJECT_PATH)" || (echo "PROJECT_PATH is required. Example: make fast-static PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project'"; exit 2)
 	$(PYTHON) scripts/100_fast_static.py \
 		--project-path "$(PROJECT_PATH)" \
@@ -213,7 +225,7 @@ clean-env:
 
 .PHONY: py-compile
 py-compile:
-	$(PYTHON) -m py_compile scripts/00_env_check.py scripts/10_run_init.py scripts/20_build_audit_map.py scripts/30_build_tool_plan.py scripts/40_build_evidence_pack.py scripts/50_run_static_tools.py scripts/60_build_candidates.py scripts/70_prepare_ai_triage.py scripts/80_merge_results.py scripts/90_render_delivery.py scripts/95_validate_run.py scripts/100_fast_static.py scripts/110_collect_debug.py scripts/120_run_benchmark.py scripts/99_smoke_check.py
+	$(PYTHON) -m py_compile scripts/00_env_check.py scripts/05_check_deps.py scripts/10_run_init.py scripts/20_build_audit_map.py scripts/30_build_tool_plan.py scripts/40_build_evidence_pack.py scripts/50_run_static_tools.py scripts/60_build_candidates.py scripts/70_prepare_ai_triage.py scripts/80_merge_results.py scripts/90_render_delivery.py scripts/95_validate_run.py scripts/100_fast_static.py scripts/110_collect_debug.py scripts/120_run_benchmark.py scripts/99_smoke_check.py
 
 .PHONY: status
 status:

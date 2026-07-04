@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -82,6 +81,9 @@ def run_command_item(item: dict[str, Any], command: dict[str, Any], run_root: Pa
     stderr_path = command_dir / "stderr.txt"
     meta_path = command_dir / "command.json"
 
+    print(f"[tool-run] start {item['tool_id']}/{item['profile']} {command_id}", flush=True)
+    print(f"[tool-run] output {rel(output_dir)}", flush=True)
+
     started_at = now()
     started = dt.datetime.now()
     exit_code, stdout, stderr, error_kind = run_shell(command["shell"], Path(item["cwd"]), timeout)
@@ -101,6 +103,8 @@ def run_command_item(item: dict[str, Any], command: dict[str, Any], run_root: Pa
             "exists": p.is_file(),
             "size_bytes": p.stat().st_size if p.is_file() else None,
         })
+
+    print(f"[tool-run] done {item['tool_id']}/{item['profile']} {command_id} status={status} exit={exit_code} duration_ms={duration_ms}", flush=True)
 
     meta = {
         "schema_version": "tool-command-result-0.1.0",
@@ -143,6 +147,7 @@ def run_plan(run_root: Path, timeout: int, dry_run: bool) -> dict[str, Any]:
             })
             continue
         if dry_run:
+            print(f"[tool-run] dry-run {item.get('tool_id')}/{item.get('profile')} commands={len(item.get('commands') or [])}", flush=True)
             item_results.append({
                 "tool_id": item.get("tool_id"),
                 "profile": item.get("profile"),

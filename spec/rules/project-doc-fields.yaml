@@ -1,4 +1,4 @@
-schema_version: project-doc-fields-0.2.0
+schema_version: project-doc-fields-0.3.0
 status: draft
 
 source_priority:
@@ -6,6 +6,7 @@ source_priority:
   - current_code_manifest
   - current_tool_evidence
   - ai_inference_from_current_code
+  - current_project_docs_extract
   - ai_extract_from_current_docs
   - local_registry_history
   - stale_or_unknown_docs
@@ -21,6 +22,7 @@ source_types:
   current_code_manifest: 当前代码清单或 manifest 事实
   current_tool_evidence: 当前工具执行证据
   ai_inference_from_current_code: AI 基于当前代码推理
+  current_project_docs_extract: 当前项目文档的确定性提取
   ai_extract_from_current_docs: AI 从当前项目文档提取
   local_registry_history: 本地索引库历史记录
   stale_or_unknown_docs: 可能过期或来源不明确的文档

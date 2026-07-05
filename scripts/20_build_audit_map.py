@@ -12,7 +12,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 
 EXCLUDE_DIRS = {
-    ".git", ".idea", ".vscode", ".cache", ".venv", "venv",
+    ".git", ".idea", ".vscode", ".cache", ".venv", "venv", "var", "local",
     "node_modules", "vendor", "Pods", "build", "dist", "target", "coverage",
     "tmp", "logs", ".gradle", ".mvn", "DerivedData",
 }
@@ -25,7 +25,7 @@ TEXT_EXTS = CODE_EXTS | {".json", ".yaml", ".yml", ".xml", ".properties", ".toml
 
 MANIFESTS = {
     "package.json", "package-lock.json", "pnpm-lock.yaml", "yarn.lock",
-    "pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts",
+    "pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts", "gradlew", "gradlew.bat",
     "go.mod", "go.sum", "composer.json", "composer.lock", "pubspec.yaml", "pubspec.lock",
     "Podfile", "Podfile.lock", "Cargo.toml", "Cargo.lock", "requirements.txt", "pyproject.toml",
 }
@@ -169,6 +169,135 @@ def detect_stacks(files: list[Path], project: Path) -> dict[str, Any]:
     return {"detected_stack_ids": [x["stack_id"] for x in detected], "detected_stacks": detected}
 
 
+def by_name(files: list[Path], project: Path, names: set[str]) -> list[str]:
+    return sorted(rel(path, project) for path in files if path.name in names)
+
+
+def by_suffix(files: list[Path], project: Path, suffixes: set[str]) -> list[str]:
+    return sorted(rel(path, project) for path in files if path.suffix.lower() in suffixes)
+
+
+def gate(applicable: bool, reason: str, evidence: list[str]) -> dict[str, Any]:
+    return {"applicable": applicable, "reason": reason, "evidence": evidence[:20]}
+
+
+def scan_go_codegen(files: list[Path], project: Path, max_file_size: int) -> dict[str, Any]:
+    docs_imports: list[dict[str, Any]] = []
+    swag_markers: list[dict[str, Any]] = []
+    for path in files:
+        if path.suffix.lower() != ".go":
+            continue
+        text = safe_read(path, max_file_size)
+        if not text:
+            continue
+        for line_no, line in enumerate(text.splitlines(), start=1):
+            stripped = line.strip()
+            if re.search(r'"[^"\n]*/docs"|"docs"', stripped):
+                docs_imports.append({"file_path": rel(path, project), "line": line_no, "preview": stripped[:200]})
+            if "github.com/swaggo" in stripped or re.search(r"//\s*@(?:title|version|description|host|BasePath|securityDefinitions)", stripped):
+                swag_markers.append({"file_path": rel(path, project), "line": line_no, "preview": stripped[:200]})
+        if len(docs_imports) >= 20 and len(swag_markers) >= 20:
+            break
+    return {
+        "has_docs_import": bool(docs_imports),
+        "docs_imports": docs_imports[:20],
+        "has_swag_markers": bool(swag_markers),
+        "swag_markers": swag_markers[:20],
+        "swag_init_may_recover_go_list": bool(docs_imports or swag_markers),
+    }
+
+
+def build_project_facts(run_meta: dict[str, Any], profile: dict[str, Any], files: list[Path], project: Path, ext_counts: dict[str, int], max_file_size: int) -> dict[str, Any]:
+    go_mod = by_name(files, project, {"go.mod"})
+    go_sum = by_name(files, project, {"go.sum"})
+    pom = by_name(files, project, {"pom.xml"})
+    gradle = by_name(files, project, {"build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts"})
+    gradlew = by_name(files, project, {"gradlew", "gradlew.bat"})
+    package_json = by_name(files, project, {"package.json"})
+    package_lock = by_name(files, project, {"package-lock.json"})
+    pnpm_lock = by_name(files, project, {"pnpm-lock.yaml"})
+    yarn_lock = by_name(files, project, {"yarn.lock"})
+    composer = by_name(files, project, {"composer.json", "composer.lock"})
+    pyproject = by_name(files, project, {"pyproject.toml", "requirements.txt"})
+    go_codegen = scan_go_codegen(files, project, max_file_size)
+
+    build_systems: list[str] = []
+    package_managers: list[str] = []
+    if go_mod:
+        build_systems.append("go_module")
+        package_managers.append("go")
+    if pom:
+        build_systems.append("maven")
+        package_managers.append("maven")
+    if gradle or gradlew:
+        build_systems.append("gradle")
+        package_managers.append("gradle")
+    if package_json:
+        build_systems.append("node_package")
+        package_managers.append("npm")
+    if pnpm_lock:
+        package_managers.append("pnpm")
+    if yarn_lock:
+        package_managers.append("yarn")
+    if composer:
+        build_systems.append("composer")
+        package_managers.append("composer")
+    if pyproject:
+        build_systems.append("python")
+        package_managers.append("python")
+
+    has_go_code = bool(ext_counts.get(".go"))
+    has_js_code = any(ext_counts.get(ext) for ext in [".js", ".jsx", ".ts", ".tsx", ".vue"])
+    has_java_code = any(ext_counts.get(ext) for ext in [".java", ".kt", ".kts"])
+
+    tool_gates = {
+        "go": gate(bool(go_mod), "go.mod found" if go_mod else "go.mod not found", go_mod),
+        "govulncheck": gate(bool(go_mod), "requires go.mod" if not go_mod else "go module manifest found", go_mod),
+        "golangci-lint": gate(bool(go_mod), "requires go.mod" if not go_mod else "go module manifest found", go_mod),
+        "swag": gate(has_go_code and go_codegen["swag_init_may_recover_go_list"], "go swagger codegen markers found" if go_codegen["swag_init_may_recover_go_list"] else "no Go Swagger codegen markers found", [x.get("file_path", "") for x in go_codegen.get("docs_imports", []) + go_codegen.get("swag_markers", []) if x.get("file_path")]),
+        "mvn": gate(bool(pom), "requires pom.xml" if not pom else "pom.xml found", pom),
+        "gradle": gate(bool(gradle or gradlew), "requires Gradle manifest or wrapper" if not (gradle or gradlew) else "Gradle manifest/wrapper found", gradle + gradlew),
+        "dependency-check": gate(bool(pom or gradle or gradlew), "requires supported dependency manifest" if not (pom or gradle or gradlew) else "supported Java dependency manifest found", pom + gradle + gradlew),
+        "npm": gate(bool(package_json), "requires package.json" if not package_json else "package.json found", package_json + package_lock),
+        "pnpm": gate(bool(pnpm_lock), "requires pnpm-lock.yaml" if not pnpm_lock else "pnpm-lock.yaml found", pnpm_lock),
+        "yarn": gate(bool(yarn_lock), "requires yarn.lock" if not yarn_lock else "yarn.lock found", yarn_lock),
+        "retire": gate(bool(package_json or has_js_code), "requires package.json or JS/TS files" if not (package_json or has_js_code) else "Node/frontend evidence found", package_json),
+    }
+
+    return {
+        "schema_version": "project-facts-0.1.0",
+        "generated_at": now(),
+        "source_priority": ["current_code_manifest", "current_tool_evidence", "ai_inference_from_current_code", "ai_extract_from_current_docs", "local_registry_history"],
+        "run": {
+            "run_id": run_meta.get("run_id"),
+            "project_key": run_meta.get("project_key"),
+            "audit_mode": run_meta.get("audit_mode"),
+        },
+        "project": {
+            "project_code": profile.get("project_code"),
+            "project_name": profile.get("project_name"),
+            "project_path_relative_to_workbench": profile.get("project_path", {}).get("relative_to_workbench"),
+            "git": profile.get("git", {}),
+        },
+        "language_summary": {
+            "extension_counts": dict(sorted(ext_counts.items(), key=lambda x: (-x[1], x[0]))),
+            "has_go_code": has_go_code,
+            "has_java_jvm_code": has_java_code,
+            "has_node_frontend_code": has_js_code,
+        },
+        "manifests": {
+            "go": {"has_go_mod": bool(go_mod), "has_go_sum": bool(go_sum), "go_mod_files": go_mod, "go_sum_files": go_sum, "codegen": go_codegen},
+            "java": {"has_pom": bool(pom), "has_gradle": bool(gradle), "has_gradle_wrapper": bool(gradlew), "pom_files": pom, "gradle_files": gradle, "gradle_wrapper_files": gradlew},
+            "node": {"has_package_json": bool(package_json), "has_package_lock": bool(package_lock), "has_pnpm_lock": bool(pnpm_lock), "has_yarn_lock": bool(yarn_lock), "package_json_files": package_json, "package_lock_files": package_lock, "pnpm_lock_files": pnpm_lock, "yarn_lock_files": yarn_lock},
+            "php": {"has_composer": bool(composer), "composer_files": composer},
+            "python": {"has_python_manifest": bool(pyproject), "python_manifest_files": pyproject},
+        },
+        "build_systems": sorted(set(build_systems)),
+        "package_managers": sorted(set(package_managers)),
+        "tool_gates": tool_gates,
+    }
+
+
 def build_map(run_root: Path, max_files: int, max_file_size: int) -> dict[str, Any]:
     run_meta = load_json(run_root / "meta" / "RUN_METADATA.json")
     profile = load_json(run_root / "meta" / "PROJECT_PROFILE.json")
@@ -223,8 +352,10 @@ def build_map(run_root: Path, max_files: int, max_file_size: int) -> dict[str, A
             for item in scan_text(text, path, project_path, patterns):
                 add_limited(signals[signal_name], item, limit=500)
 
+    project_facts = build_project_facts(run_meta, profile, files, project_path, ext_counts, max_file_size)
+
     return {
-        "schema_version": "audit-map-0.1.0",
+        "schema_version": "audit-map-0.2.0",
         "generated_at": now(),
         "run": {
             "run_id": run_meta.get("run_id"),
@@ -250,11 +381,14 @@ def build_map(run_root: Path, max_files: int, max_file_size: int) -> dict[str, A
         "summary": summary,
         "extension_counts": dict(sorted(ext_counts.items(), key=lambda x: (-x[1], x[0]))),
         "stacks": detect_stacks(files, project_path),
+        "project_facts_ref": "audit-map/PROJECT_FACTS.json",
+        "project_facts": project_facts,
         "files": {k: finish_bucket(v) for k, v in groups.items()},
         "signals": {k: finish_bucket(v) for k, v in signals.items()},
         "coverage_notes": [
             "Audit map is generated by static discovery only.",
-            "It guides later evidence collection and AI triage, but does not prove risk by itself.",
+            "Project facts are based on current code/manifests and must take precedence over stale documents.",
+            "Audit map guides later evidence collection and AI triage, but does not prove risk by itself.",
         ],
     }
 
@@ -277,6 +411,7 @@ def list_block(title: str, data: dict[str, Any]) -> str:
 
 
 def render_md(data: dict[str, Any]) -> str:
+    facts = data.get("project_facts", {})
     lines = [
         "# AUDIT_MAP", "",
         "## Run", "",
@@ -295,6 +430,10 @@ def render_md(data: dict[str, Any]) -> str:
         f"- Code files: {data['summary'].get('code_files')}",
         f"- Text files: {data['summary'].get('text_files')}",
         f"- Total code lines sampled: {data['summary'].get('total_code_lines_sampled')}", "",
+        "## Project facts", "",
+        f"- Build systems: `{', '.join(facts.get('build_systems') or []) or '-'}`",
+        f"- Package managers: `{', '.join(facts.get('package_managers') or []) or '-'}`",
+        f"- Project facts file: `{data.get('project_facts_ref')}`", "",
         "## Detected stacks", "",
     ]
     stacks = data["stacks"].get("detected_stacks") or []
@@ -322,11 +461,37 @@ def render_md(data: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def render_project_facts_md(facts: dict[str, Any]) -> str:
+    lines = [
+        "# PROJECT_FACTS", "",
+        f"- Run ID: `{facts.get('run', {}).get('run_id')}`",
+        f"- Project: `{facts.get('project', {}).get('project_name') or ''}`",
+        f"- Build systems: `{', '.join(facts.get('build_systems') or []) or '-'}`",
+        f"- Package managers: `{', '.join(facts.get('package_managers') or []) or '-'}`", "",
+        "## Manifest gates", "",
+        "| Tool | Applicable | Reason | Evidence |",
+        "|---|---:|---|---|",
+    ]
+    for tool_id, gate_item in sorted((facts.get("tool_gates") or {}).items()):
+        evidence = ", ".join(gate_item.get("evidence") or []) or "-"
+        lines.append(f"| `{tool_id}` | `{gate_item.get('applicable')}` | {gate_item.get('reason')} | `{evidence}` |")
+    lines.extend(["", "## Go codegen", ""])
+    go_codegen = facts.get("manifests", {}).get("go", {}).get("codegen", {})
+    lines.append(f"- Docs import: `{go_codegen.get('has_docs_import')}`")
+    lines.append(f"- Swag markers: `{go_codegen.get('has_swag_markers')}`")
+    lines.append(f"- swag init may recover go list: `{go_codegen.get('swag_init_may_recover_go_list')}`")
+    lines.append("")
+    return "\n".join(lines)
+
+
 def print_summary(data: dict[str, Any]) -> None:
+    facts = data.get("project_facts", {})
     print("audit-map summary")
     print(f"  run_id: {data['run'].get('run_id')}")
     print(f"  project: {data['project'].get('project_name')}")
     print(f"  stacks: {', '.join(data['stacks'].get('detected_stack_ids', [])) or '-'}")
+    print(f"  build_systems: {', '.join(facts.get('build_systems') or []) or '-'}")
+    print(f"  package_managers: {', '.join(facts.get('package_managers') or []) or '-'}")
     print(f"  total_files_sampled: {data['summary'].get('total_files_sampled')}")
     print(f"  code_files: {data['summary'].get('code_files')}")
     print(f"  manifests: {data['files']['manifests'].get('count')}")
@@ -355,7 +520,9 @@ def main(argv: list[str]) -> int:
     out = run_root / "audit-map"
     out.mkdir(parents=True, exist_ok=True)
     write_json(out / "AUDIT_MAP.json", data)
+    write_json(out / "PROJECT_FACTS.json", data["project_facts"])
     (out / "AUDIT_MAP.md").write_text(render_md(data), encoding="utf-8")
+    (out / "PROJECT_FACTS.md").write_text(render_project_facts_md(data["project_facts"]), encoding="utf-8")
 
     if args.print_summary:
         print_summary(data)

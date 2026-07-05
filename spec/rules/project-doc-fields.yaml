@@ -1,0 +1,58 @@
+schema_version: project-doc-fields-0.2.0
+status: draft
+
+source_priority:
+  - human_current_run_confirmation
+  - current_code_manifest
+  - current_tool_evidence
+  - ai_inference_from_current_code
+  - ai_extract_from_current_docs
+  - local_registry_history
+  - stale_or_unknown_docs
+
+confidence_values:
+  high: 高置信
+  medium: 中置信
+  low: 低置信
+  unknown: 未知
+
+source_types:
+  human_current_run_confirmation: 本轮人工确认
+  current_code_manifest: 当前代码清单或 manifest 事实
+  current_tool_evidence: 当前工具执行证据
+  ai_inference_from_current_code: AI 基于当前代码推理
+  ai_extract_from_current_docs: AI 从当前项目文档提取
+  local_registry_history: 本地索引库历史记录
+  stale_or_unknown_docs: 可能过期或来源不明确的文档
+
+field_record_shape:
+  required: [field_id, label_zh, value, source_type, confidence]
+  optional: [source_file, evidence_excerpt, verified_by_human, last_verified_commit, last_seen_at, notes]
+
+fields:
+  project_code: {label_zh: 项目代码, stability: stable}
+  project_name_cn: {label_zh: 项目中文名, stability: stable}
+  project_name_en: {label_zh: 项目英文名, stability: stable}
+  business_domain: {label_zh: 业务域, stability: semi_stable}
+  project_owner: {label_zh: 项目负责人, stability: semi_stable}
+  dev_team: {label_zh: 开发团队, stability: semi_stable}
+  ops_team: {label_zh: 运维团队, stability: semi_stable}
+  security_contact: {label_zh: 安全对接人, stability: semi_stable}
+  repo_url: {label_zh: 仓库地址, stability: stable}
+  main_language: {label_zh: 主语言, stability: volatile}
+  frameworks: {label_zh: 框架与版本, stability: volatile}
+  build_systems: {label_zh: 构建系统, stability: volatile}
+  package_managers: {label_zh: 包管理器, stability: volatile}
+  build_commands: {label_zh: 构建命令, stability: semi_stable}
+  run_commands: {label_zh: 启动命令, stability: semi_stable}
+  test_commands: {label_zh: 测试命令, stability: semi_stable}
+  deployment_envs: {label_zh: 部署环境, stability: semi_stable}
+  api_docs: {label_zh: API 文档, stability: semi_stable}
+  ops_docs: {label_zh: 运维文档, stability: semi_stable}
+  auth_model: {label_zh: 认证鉴权模型, stability: semi_stable}
+  data_assets: {label_zh: 数据资产, stability: semi_stable}
+  upstream_dependencies: {label_zh: 上游依赖, stability: semi_stable}
+  downstream_dependencies: {label_zh: 下游依赖, stability: semi_stable}
+  external_services: {label_zh: 外部服务, stability: semi_stable}
+  known_limitations: {label_zh: 已知限制, stability: semi_stable}
+  known_risks: {label_zh: 已知风险, stability: semi_stable}

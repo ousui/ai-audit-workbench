@@ -11,7 +11,8 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
-RESULT_DIR = ROOT / "tmp" / "benchmarks"
+RESULT_DIR = ROOT / "var" / "tmp" / "benchmarks"
+RUNS_ROOT = ROOT / "var" / "runs"
 
 BENCHMARKS = [
     {
@@ -43,11 +44,9 @@ def validate_outputs(run_root: Path, expected: dict[str, Any]) -> tuple[list[str
     errors: list[str] = []
     warnings: list[str] = []
     metrics: dict[str, Any] = {}
-
     for rel in expected["expected"].get("required_output_files", []):
         if not (run_root / rel).is_file():
             errors.append(f"missing output file: {rel}")
-
     pool_path = run_root / "candidates" / "CANDIDATE_POOL.json"
     if pool_path.is_file():
         pool = load_json(pool_path)
@@ -63,7 +62,6 @@ def validate_outputs(run_root: Path, expected: dict[str, Any]) -> tuple[list[str
                 errors.append(f"required risk_type not found: {risk_type}")
     else:
         errors.append("CANDIDATE_POOL.json missing; cannot validate candidates")
-
     validation_path = run_root / "validate" / "VALIDATION_RESULT.json"
     if validation_path.is_file():
         validation = load_json(validation_path)
@@ -74,18 +72,15 @@ def validate_outputs(run_root: Path, expected: dict[str, Any]) -> tuple[list[str
             errors.append(f"validation failed: {validation.get('errors')}")
         for warning in validation.get("warnings", []):
             warnings.append(str(warning))
-
     return errors, warnings, metrics
 
 
 def run_benchmark(item: dict[str, Any]) -> dict[str, Any]:
     benchmark_id = item["benchmark_id"]
     expected = load_json(ROOT / item["expected_path"])
-    run_root = ROOT / "runs" / item["project_code"] / item["run_id"]
-
+    run_root = RUNS_ROOT / item["project_code"] / item["run_id"]
     if run_root.exists():
         shutil.rmtree(run_root)
-
     cmd = [
         sys.executable,
         "scripts/100_fast_static.py",
@@ -97,13 +92,13 @@ def run_benchmark(item: dict[str, Any]) -> dict[str, Any]:
         item["project_name"],
         "--run-id",
         item["run_id"],
+        "--output-root",
+        "var/runs",
     ]
-
     code, stdout, stderr = run_cmd(cmd)
     errors: list[str] = []
     warnings: list[str] = []
     metrics: dict[str, Any] = {}
-
     if code != 0:
         errors.append(f"fast-static exited with code {code}")
     if run_root.is_dir():
@@ -112,7 +107,6 @@ def run_benchmark(item: dict[str, Any]) -> dict[str, Any]:
         warnings.extend(output_warnings)
     else:
         errors.append(f"run root not created: {run_root}")
-
     return {
         "benchmark_id": benchmark_id,
         "status": "passed" if not errors else "failed",
@@ -149,15 +143,13 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--benchmark-id", default="all")
     parser.add_argument("--print-summary", action="store_true")
     args = parser.parse_args(argv)
-
     selected = BENCHMARKS if args.benchmark_id == "all" else [b for b in BENCHMARKS if b["benchmark_id"] == args.benchmark_id]
     if not selected:
         print(f"[FAIL] benchmark not found: {args.benchmark_id}", file=sys.stderr)
         return 2
-
     items = [run_benchmark(item) for item in selected]
     result = {
-        "schema_version": "benchmark-result-0.1.0",
+        "schema_version": "benchmark-result-0.2.0",
         "summary": {
             "total": len(items),
             "passed": sum(1 for item in items if item["status"] == "passed"),
@@ -166,11 +158,9 @@ def main(argv: list[str]) -> int:
         "status": "passed" if all(item["status"] == "passed" for item in items) else "failed",
         "items": items,
     }
-
     RESULT_DIR.mkdir(parents=True, exist_ok=True)
     write_json(RESULT_DIR / "BENCHMARK_RESULT.json", result)
     (RESULT_DIR / "BENCHMARK_RESULT.md").write_text(render_md(result), encoding="utf-8")
-
     if args.print_summary:
         print("benchmark summary")
         print(f"  status: {result['status']}")

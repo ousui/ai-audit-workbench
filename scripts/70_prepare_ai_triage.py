@@ -24,7 +24,7 @@ def build_input(run_root: Path, max_candidates: int) -> dict[str, Any]:
     pool = load_json(run_root / "candidates" / "CANDIDATE_POOL.json")
     candidates = pool.get("candidates") or []
     return {
-        "schema_version": "ai-triage-input-0.1.0",
+        "schema_version": "ai-triage-input-0.2.0",
         "triage_mode": "FAST_STATIC",
         "run": pack.get("run"),
         "project": pack.get("project"),
@@ -37,8 +37,8 @@ def build_input(run_root: Path, max_candidates: int) -> dict[str, Any]:
         "candidate_summary": pool.get("summary", {}),
         "candidates": candidates[:max_candidates],
         "instructions": {
-            "prompt_ref": "prompts/triage/FAST_STATIC.md",
-            "output_schema_ref": "schemas/AI_TRIAGE_RESULT.schema.json",
+            "prompt_ref": "spec/prompts/triage/FAST_STATIC.md",
+            "output_schema_ref": "spec/schemas/AI_TRIAGE_RESULT.schema.json",
             "must_not_create_unreferenced_findings": True,
             "current_stage_dynamic_testing": False,
         },

@@ -6,6 +6,7 @@ import datetime as dt
 import hashlib
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -67,6 +68,138 @@ def sha1(text: str) -> str:
     return hashlib.sha1(text.encode("utf-8", errors="ignore")).hexdigest()
 
 
+def sha256_short(text: str, length: int = 16) -> str:
+    return hashlib.sha256(text.encode("utf-8", errors="ignore")).hexdigest()[:length]
+
+
+def slugify(value: str, default: str = "manual-project") -> str:
+    value = (value or "").strip()
+    value = re.sub(r"[^A-Za-z0-9._-]+", "-", value).strip("-._")
+    return value or default
+
+
+def run_command(args: list[str], cwd: Path, timeout: int = 8) -> tuple[int, str, str]:
+    try:
+        proc = subprocess.run(args, cwd=str(cwd), text=True, capture_output=True, timeout=timeout)
+        return proc.returncode, proc.stdout.strip(), proc.stderr.strip()
+    except Exception as exc:
+        return 1, "", str(exc)
+
+
+def normalize_remote_url(value: str | None) -> str | None:
+    if not value:
+        return None
+    text = value.strip().replace("\\", "/")
+    if text.startswith("git@") and ":" in text:
+        host, path = text[4:].split(":", 1)
+        text = f"{host}/{path}"
+    text = re.sub(r"^(ssh|https?|git)://", "", text, flags=re.I)
+    text = re.sub(r"^[^/@]+@", "", text)
+    text = text.rstrip("/")
+    if text.endswith(".git"):
+        text = text[:-4]
+    return text.lower()
+
+
+def git_registry_identity(project_root: Path, profile: dict[str, Any]) -> dict[str, Any] | None:
+    git = profile.get("git") or {}
+    remote = normalize_remote_url(git.get("remote_origin"))
+    git_root_raw = git.get("root")
+    if not remote or not git_root_raw:
+        return None
+    git_root = Path(git_root_raw).resolve()
+    try:
+        repo_rel = str(project_root.resolve().relative_to(git_root)) or "."
+    except Exception:
+        repo_rel = "."
+    if repo_rel == "":
+        repo_rel = "."
+    hash_input = f"git:{remote}#{repo_rel}"
+    project_id = f"git-{sha256_short(hash_input)}"
+    return {
+        "project_id": project_id,
+        "strategy": "git-remote-subpath-hash",
+        "requested_strategy": "auto",
+        "hash_algorithm": "sha256",
+        "hash_length": 16,
+        "hash_input": hash_input,
+        "vcs": {"type": "git", "remote_url_normalized": remote, "repo_relative_path": repo_rel},
+    }
+
+
+def svn_registry_identity(project_root: Path) -> dict[str, Any] | None:
+    code, url, _ = run_command(["svn", "info", "--show-item", "url"], cwd=project_root)
+    if code != 0 or not url:
+        return None
+    code, root_url, _ = run_command(["svn", "info", "--show-item", "repos-root-url"], cwd=project_root)
+    root_url = root_url or url
+    url_norm = url.strip().rstrip("/").lower()
+    root_norm = root_url.strip().rstrip("/").lower()
+    subpath = "."
+    if url_norm.startswith(root_norm):
+        subpath = url_norm[len(root_norm):].strip("/") or "."
+    hash_input = f"svn:{root_norm}#{subpath}"
+    return {
+        "project_id": f"svn-{sha256_short(hash_input)}",
+        "strategy": "svn-url-subpath-hash",
+        "requested_strategy": "auto",
+        "hash_algorithm": "sha256",
+        "hash_length": 16,
+        "hash_input": hash_input,
+        "vcs": {"type": "svn", "remote_url_normalized": root_norm, "repo_relative_path": subpath},
+    }
+
+
+def dir_registry_identity(project_root: Path) -> dict[str, Any]:
+    path = str(project_root.resolve())
+    hash_input = f"dir:{path}"
+    return {
+        "project_id": f"dir-{sha256_short(hash_input)}",
+        "strategy": "dir-hash",
+        "requested_strategy": "auto",
+        "hash_algorithm": "sha256",
+        "hash_length": 16,
+        "hash_input": hash_input,
+        "vcs": {"type": "none", "remote_url_normalized": None, "repo_relative_path": path},
+    }
+
+
+def build_registry_identity(project_root: Path, profile: dict[str, Any], strategy: str, manual_id: str | None) -> dict[str, Any]:
+    requested = strategy or "auto"
+    if requested == "manual":
+        if not manual_id:
+            raise SystemExit("[FAIL] --registry-project-id is required when --registry-id-strategy=manual")
+        project_id = slugify(manual_id)
+        return {
+            "project_id": project_id,
+            "strategy": "manual",
+            "requested_strategy": requested,
+            "hash_algorithm": None,
+            "hash_length": None,
+            "hash_input": None,
+            "vcs": {"type": "manual", "remote_url_normalized": None, "repo_relative_path": None},
+        }
+    if requested in {"auto", "git-hash"}:
+        identity = git_registry_identity(project_root, profile)
+        if identity:
+            identity["requested_strategy"] = requested
+            return identity
+        if requested == "git-hash":
+            raise SystemExit("[FAIL] git identity unavailable for --registry-id-strategy=git-hash")
+    if requested in {"auto", "svn-hash"}:
+        identity = svn_registry_identity(project_root)
+        if identity:
+            identity["requested_strategy"] = requested
+            return identity
+        if requested == "svn-hash":
+            raise SystemExit("[FAIL] svn identity unavailable for --registry-id-strategy=svn-hash")
+    if requested in {"auto", "dir-hash"}:
+        identity = dir_registry_identity(project_root)
+        identity["requested_strategy"] = requested
+        return identity
+    raise SystemExit(f"[FAIL] unsupported registry id strategy: {requested}")
+
+
 def excluded(path: Path, project: Path) -> bool:
     try:
         parts = path.resolve().relative_to(project.resolve()).parts
@@ -115,15 +248,7 @@ def discover_docs(project: Path, max_docs: int, max_file_size: int) -> list[dict
                 first_heading = line.strip("# ").strip()
                 if first_heading:
                     break
-        docs.append({
-            "path": rel(path, project),
-            "readable": True,
-            "size_bytes": path.stat().st_size,
-            "sha1": sha1(text),
-            "first_heading": first_heading,
-            "excerpt": text[:1200],
-            "full_text": text,
-        })
+        docs.append({"path": rel(path, project), "readable": True, "size_bytes": path.stat().st_size, "sha1": sha1(text), "first_heading": first_heading, "excerpt": text[:1200], "full_text": text})
     return docs
 
 
@@ -142,17 +267,7 @@ def uniq(values: list[str], limit: int = 30) -> list[str]:
 
 
 def make_field(field_id: str, value: Any, source_type: str, confidence: str, source_file: str | None = None, evidence: str | None = None, notes: list[str] | None = None) -> dict[str, Any]:
-    return {
-        "field_id": field_id,
-        "label_zh": FIELD_LABELS.get(field_id, field_id),
-        "value": value,
-        "source_type": source_type,
-        "confidence": confidence,
-        "source_file": source_file,
-        "evidence_excerpt": evidence,
-        "verified_by_human": False,
-        "notes": notes or [],
-    }
+    return {"field_id": field_id, "label_zh": FIELD_LABELS.get(field_id, field_id), "value": value, "source_type": source_type, "confidence": confidence, "source_file": source_file, "evidence_excerpt": evidence, "verified_by_human": False, "notes": notes or []}
 
 
 def classify_commands(commands: list[str]) -> dict[str, list[str]]:
@@ -221,61 +336,40 @@ def infer_doc_fields(docs: list[dict[str, Any]], profile: dict[str, Any], facts:
     return fields
 
 
-def build_profile(run_root: Path, max_docs: int, max_file_size: int) -> dict[str, Any]:
+def build_profile(run_root: Path, max_docs: int, max_file_size: int, registry_id_strategy: str, registry_project_id: str | None) -> dict[str, Any]:
     run_meta = load_json(run_root / "meta" / "RUN_METADATA.json")
     profile = load_json(run_root / "meta" / "PROJECT_PROFILE.json")
     facts_path = run_root / "audit-map" / "PROJECT_FACTS.json"
     facts = load_json(facts_path) if facts_path.is_file() else {}
     project_root = Path(profile["project_path"]["resolved"])
+    registry_identity = build_registry_identity(project_root, profile, registry_id_strategy, registry_project_id)
     docs = discover_docs(project_root, max_docs, max_file_size)
     fields = infer_doc_fields(docs, profile, facts)
     doc_sources = [{k: v for k, v in item.items() if k != "full_text"} for item in docs]
     return {
-        "schema_version": "project-doc-profile-0.1.0",
+        "schema_version": "project-doc-profile-0.2.0",
         "generated_at": now(),
-        "source_priority": [
-            "human_current_run_confirmation",
-            "current_code_manifest",
-            "current_tool_evidence",
-            "ai_inference_from_current_code",
-            "current_project_docs_extract",
-            "local_registry_history",
-            "stale_or_unknown_docs",
-        ],
+        "source_priority": ["human_current_run_confirmation", "current_code_manifest", "current_tool_evidence", "ai_inference_from_current_code", "current_project_docs_extract", "local_registry_history", "stale_or_unknown_docs"],
         "run": {"run_id": run_meta.get("run_id"), "project_key": run_meta.get("project_key"), "audit_mode": run_meta.get("audit_mode")},
         "project": {"project_code": profile.get("project_code"), "project_name": profile.get("project_name"), "project_path_relative_to_workbench": profile.get("project_path", {}).get("relative_to_workbench"), "git": profile.get("git", {})},
+        "registry_identity": registry_identity,
         "summary": {"doc_sources_discovered": len(doc_sources), "fields_extracted": len(fields), "status": "completed"},
         "doc_sources": doc_sources,
         "fields": fields,
-        "notes": [
-            "Project document profile is advisory and may be stale.",
-            "Current code manifests and tool evidence take priority over documentation-derived fields.",
-            "Human confirmation should be recorded separately when field accuracy matters.",
-        ],
+        "notes": ["Project document profile is advisory and may be stale.", "Current code manifests and tool evidence take priority over documentation-derived fields.", "Human confirmation should be recorded separately when field accuracy matters."],
     }
 
 
 def build_project_index(doc_profile: dict[str, Any], facts: dict[str, Any]) -> dict[str, Any]:
     project = doc_profile.get("project", {})
     fields = doc_profile.get("fields", {})
-    return {
-        "schema_version": "project-index-0.1.0",
-        "updated_at": now(),
-        "project_key": doc_profile.get("run", {}).get("project_key"),
-        "project_code": project.get("project_code"),
-        "project_name": project.get("project_name"),
-        "git": project.get("git", {}),
-        "latest_run": doc_profile.get("run"),
-        "latest_build_systems": facts.get("build_systems", []),
-        "latest_package_managers": facts.get("package_managers", []),
-        "doc_profile_summary": doc_profile.get("summary", {}),
-        "fields": fields,
-        "refs": {"latest_project_doc_profile": "audit-map/PROJECT_DOC_PROFILE.json", "latest_project_facts": "audit-map/PROJECT_FACTS.json"},
-    }
+    registry_identity = doc_profile.get("registry_identity", {})
+    return {"schema_version": "project-index-0.1.0", "updated_at": now(), "identity": registry_identity, "project_key": doc_profile.get("run", {}).get("project_key"), "project_code": project.get("project_code"), "project_name": project.get("project_name"), "git": project.get("git", {}), "latest_run": doc_profile.get("run"), "latest_build_systems": facts.get("build_systems", []), "latest_package_managers": facts.get("package_managers", []), "doc_profile_summary": doc_profile.get("summary", {}), "fields": fields, "refs": {"latest_project_doc_profile": "audit-map/PROJECT_DOC_PROFILE.json", "latest_project_facts": "audit-map/PROJECT_FACTS.json"}}
 
 
 def render_profile_md(profile: dict[str, Any]) -> str:
-    lines = ["# PROJECT_DOC_PROFILE", "", f"- Status: `{profile['summary']['status']}`", f"- Document sources: {profile['summary']['doc_sources_discovered']}", f"- Fields extracted: {profile['summary']['fields_extracted']}", "", "## Fields", "", "| Field | Source | Confidence | Value |", "|---|---|---|---|"]
+    identity = profile.get("registry_identity", {})
+    lines = ["# PROJECT_DOC_PROFILE", "", f"- Status: `{profile['summary']['status']}`", f"- Registry project ID: `{identity.get('project_id')}`", f"- Registry strategy: `{identity.get('strategy')}`", f"- Document sources: {profile['summary']['doc_sources_discovered']}", f"- Fields extracted: {profile['summary']['fields_extracted']}", "", "## Fields", "", "| Field | Source | Confidence | Value |", "|---|---|---|---|"]
     for field_id, item in sorted((profile.get("fields") or {}).items()):
         value = item.get("value")
         value_text = json.dumps(value, ensure_ascii=False) if not isinstance(value, str) else value
@@ -291,13 +385,16 @@ def render_profile_md(profile: dict[str, Any]) -> str:
 
 
 def render_index_md(index: dict[str, Any]) -> str:
-    lines = ["# PROJECT_INDEX", "", f"- Project key: `{index.get('project_key')}`", f"- Project code: `{index.get('project_code') or ''}`", f"- Project name: `{index.get('project_name') or ''}`", f"- Updated at: `{index.get('updated_at')}`", "", "## Latest facts", "", f"- Build systems: `{', '.join(index.get('latest_build_systems') or []) or '-'}`", f"- Package managers: `{', '.join(index.get('latest_package_managers') or []) or '-'}`", ""]
+    identity = index.get("identity", {})
+    lines = ["# PROJECT_INDEX", "", f"- Project ID: `{identity.get('project_id')}`", f"- Strategy: `{identity.get('strategy')}`", f"- Project code: `{index.get('project_code') or ''}`", f"- Project name: `{index.get('project_name') or ''}`", f"- Updated at: `{index.get('updated_at')}`", "", "## Latest facts", "", f"- Build systems: `{', '.join(index.get('latest_build_systems') or []) or '-'}`", f"- Package managers: `{', '.join(index.get('latest_package_managers') or []) or '-'}`", ""]
     return "\n".join(lines)
 
 
 def print_summary(profile: dict[str, Any], index_path: Path) -> None:
     print("project-doc-profile summary")
     print(f"  status: {profile['summary']['status']}")
+    print(f"  registry_project_id: {profile.get('registry_identity', {}).get('project_id')}")
+    print(f"  registry_strategy: {profile.get('registry_identity', {}).get('strategy')}")
     print(f"  doc_sources_discovered: {profile['summary']['doc_sources_discovered']}")
     print(f"  fields_extracted: {profile['summary']['fields_extracted']}")
     print(f"  project_index: {index_path}")
@@ -309,6 +406,8 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--max-docs", type=int, default=80)
     parser.add_argument("--max-file-size", type=int, default=256 * 1024)
     parser.add_argument("--registry-root", default=str(REGISTRY_ROOT))
+    parser.add_argument("--registry-id-strategy", default="auto", choices=["auto", "git-hash", "svn-hash", "dir-hash", "manual"])
+    parser.add_argument("--registry-project-id", default="")
     parser.add_argument("--print-summary", action="store_true")
     args = parser.parse_args(argv)
 
@@ -319,7 +418,7 @@ def main(argv: list[str]) -> int:
         print("[FAIL] PROJECT_PROFILE.json not found. Run run-init first.", file=sys.stderr)
         return 2
 
-    profile = build_profile(run_root, args.max_docs, args.max_file_size)
+    profile = build_profile(run_root, args.max_docs, args.max_file_size, args.registry_id_strategy, args.registry_project_id or None)
     facts_path = run_root / "audit-map" / "PROJECT_FACTS.json"
     facts = load_json(facts_path) if facts_path.is_file() else {}
     out = run_root / "audit-map"
@@ -329,8 +428,8 @@ def main(argv: list[str]) -> int:
     registry_root = Path(args.registry_root)
     if not registry_root.is_absolute():
         registry_root = (ROOT / registry_root).resolve()
-    project_key = profile.get("run", {}).get("project_key") or "unknown"
-    index_dir = registry_root / str(project_key)
+    project_id = profile.get("registry_identity", {}).get("project_id") or "unknown"
+    index_dir = registry_root / str(project_id)
     index = build_project_index(profile, facts)
     write_json(index_dir / "PROJECT_INDEX.json", index)
     (index_dir / "PROJECT_INDEX.md").write_text(render_index_md(index), encoding="utf-8")

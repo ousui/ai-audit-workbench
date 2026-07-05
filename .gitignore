@@ -21,6 +21,9 @@ runs/*
 deliveries/*
 !deliveries/README.md
 
+# Local personal state and project index
+local/
+
 # Runtime temp and cache
 tmp/
 .cache/

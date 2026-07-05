@@ -13,7 +13,10 @@
     ],
     "required_output_files": [
       "audit-map/AUDIT_MAP.json",
+      "audit-map/PROJECT_FACTS.json",
       "evidence/TOOL_PLAN.json",
+      "evidence/PREFLIGHT_RESULT.json",
+      "evidence/tool-execution/TOOL_EXECUTION_PLAN.json",
       "evidence/EVIDENCE_PACK.json",
       "evidence/TOOL_RUN_RESULT.json",
       "candidates/CANDIDATE_POOL.json",

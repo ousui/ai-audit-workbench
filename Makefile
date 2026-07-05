@@ -1,8 +1,11 @@
 SHELL := /usr/bin/env bash
 
 PYTHON ?= python3
-ENV_CHECK_RESULT ?= env/ENV_CHECK_RESULT.local.json
-SMOKE_RESULT_DIR ?= tmp/smoke
+ENV_CHECK_RESULT ?= local/registry/hosts/current/ENV_CHECK_RESULT.local.json
+SMOKE_RESULT_DIR ?= var/tmp/smoke
+TOOL_MATRIX ?= spec/env/TOOL_MATRIX.yaml
+TOOL_MATRIX_EXTENSIONS ?= spec/env/TOOL_MATRIX_EXTENSIONS.yaml
+RECIPES ?= spec/rules/candidate-recipes.yaml
 
 PROJECT_PATH ?=
 PROJECT_CODE ?=
@@ -13,7 +16,7 @@ DEBUG_LEVEL ?= off
 RUN_ROOT ?=
 BENCHMARK_ID ?= all
 WORKSPACE_MODE ?= workbench
-OUTPUT_ROOT ?= runs
+OUTPUT_ROOT ?= var/runs
 NETWORK_AUTHORIZATION ?= deny
 STACK_ENV_RESULT ?=
 TOOL_TIMEOUT ?= 900
@@ -23,48 +26,16 @@ DRY_RUN ?= false
 help:
 	@echo "AI Audit Workbench commands"
 	@echo ""
-	@echo "Dependencies:"
-	@echo "  make install-deps    Install Python dependencies from requirements.txt"
-	@echo "  make check-deps      Check required Python dependencies"
-	@echo ""
-	@echo "M0 env-check / smoke:"
-	@echo "  make env-check       Run core env-check and write env/ENV_CHECK_RESULT.local.json"
-	@echo "  make env-summary     Run core env-check and print summary"
-	@echo "  make smoke           Run workbench smoke check"
-	@echo "  make m0              Run env-summary and smoke"
-	@echo ""
 	@echo "Formal audit flow:"
-	@echo "  make audit-static PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project' NETWORK_AUTHORIZATION=once"
+	@echo "  make audit-static PROJECT_PATH=benchmarks/fixtures/static-demo PROJECT_CODE=DEMO NETWORK_AUTHORIZATION=once DRY_RUN=true"
 	@echo ""
-	@echo "M1-M15 capability targets:"
-	@echo "  make m1 PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project' NETWORK_AUTHORIZATION=once"
-	@echo "  make m2 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
-	@echo "  make m3 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
-	@echo "  make m4 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
-	@echo "  make m5 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
-	@echo "  make m6 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
-	@echo "  make m7 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
-	@echo "  make m8 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
-	@echo "  make m9 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
-	@echo "  make m10 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
-	@echo "  make m11 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS DEBUG_LEVEL=basic"
-	@echo "  make m12"
-	@echo "  make m13 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
-	@echo "  make m14 RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"
-	@echo "  make m15 PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project' DRY_RUN=true"
+	@echo "Validation:"
+	@echo "  make py-compile"
+	@echo "  make smoke"
+	@echo "  make benchmark"
+	@echo "  make layout-verify"
 	@echo ""
-	@echo "One-shot legacy:"
-	@echo "  make fast-static PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project' NETWORK_AUTHORIZATION=once"
-	@echo ""
-	@echo "Direct targets: run-init, audit-map, stack-env-check, tool-plan, tool-plan-stack, tool-execution-plan, ext-tool-run, ext-tool-candidates, merge-external-candidates, evidence-pack, tool-run, candidates, ai-triage, merge, delivery, validate-run, debug-trace, benchmark, context-pack, deep-explore-input"
-	@echo ""
-	@echo "Cleanup:"
-	@echo "  make clean-smoke     Remove tmp/smoke"
-	@echo "  make clean-env       Remove local env-check result"
-	@echo ""
-	@echo "Developer checks:"
-	@echo "  make py-compile      Compile current Python scripts"
-	@echo "  make status          Show git status"
+	@echo "Main targets: env-check, run-init, audit-map, stack-env-check, tool-plan-stack, tool-execution-plan, ext-tool-run, ext-tool-candidates, merge-external-candidates, evidence-pack, tool-run, candidates, ai-triage, merge, delivery, validate-run, debug-trace"
 
 .PHONY: install-deps
 install-deps:
@@ -76,11 +47,11 @@ check-deps:
 
 .PHONY: env-check
 env-check:
-	$(PYTHON) scripts/00_env_check.py --output $(ENV_CHECK_RESULT)
+	$(PYTHON) scripts/00_env_check.py --tool-matrix $(TOOL_MATRIX) --output $(ENV_CHECK_RESULT)
 
 .PHONY: env-summary
 env-summary:
-	$(PYTHON) scripts/00_env_check.py --output $(ENV_CHECK_RESULT) --print-summary
+	$(PYTHON) scripts/00_env_check.py --tool-matrix $(TOOL_MATRIX) --output $(ENV_CHECK_RESULT) --print-summary
 
 .PHONY: smoke
 smoke:
@@ -93,7 +64,7 @@ m0: env-summary smoke
 
 .PHONY: run-init
 run-init:
-	@test -n "$(PROJECT_PATH)" || (echo "PROJECT_PATH is required. Example: make run-init PROJECT_PATH=projects/demo"; exit 2)
+	@test -n "$(PROJECT_PATH)" || (echo "PROJECT_PATH is required. Example: make run-init PROJECT_PATH=benchmarks/fixtures/static-demo"; exit 2)
 	$(PYTHON) scripts/10_run_init.py \
 		--project-path "$(PROJECT_PATH)" \
 		--project-code "$(PROJECT_CODE)" \
@@ -113,7 +84,7 @@ m1: py-compile run-init
 
 .PHONY: audit-map
 audit-map:
-	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make audit-map RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make audit-map RUN_ROOT=var/runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
 	$(PYTHON) scripts/20_build_audit_map.py --run-root "$(RUN_ROOT)" --print-summary
 
 .PHONY: m2
@@ -123,18 +94,18 @@ m2: py-compile audit-map
 
 .PHONY: stack-env-check
 stack-env-check: check-deps
-	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make stack-env-check RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
-	$(PYTHON) scripts/31_stack_env_check.py --run-root "$(RUN_ROOT)" --include-all-tools --print-summary
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make stack-env-check RUN_ROOT=var/runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	$(PYTHON) scripts/31_stack_env_check.py --run-root "$(RUN_ROOT)" --include-all-tools --tool-matrix "$(TOOL_MATRIX)" --tool-matrix-extensions "$(TOOL_MATRIX_EXTENSIONS)" --print-summary
 
 .PHONY: tool-plan
 tool-plan: check-deps
-	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make tool-plan RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
-	$(PYTHON) scripts/30_build_tool_plan.py --run-root "$(RUN_ROOT)" --env-result "$(ENV_CHECK_RESULT)" --print-summary
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make tool-plan RUN_ROOT=var/runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	$(PYTHON) scripts/30_build_tool_plan.py --run-root "$(RUN_ROOT)" --env-result "$(ENV_CHECK_RESULT)" --tool-matrix "$(TOOL_MATRIX)" --tool-matrix-extensions "$(TOOL_MATRIX_EXTENSIONS)" --print-summary
 
 .PHONY: tool-plan-stack
 tool-plan-stack: check-deps
-	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make tool-plan-stack RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
-	$(PYTHON) scripts/30_build_tool_plan.py --run-root "$(RUN_ROOT)" --env-result "$${STACK_ENV_RESULT:-$(RUN_ROOT)/evidence/STACK_ENV_CHECK_RESULT.json}" --print-summary
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make tool-plan-stack RUN_ROOT=var/runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	$(PYTHON) scripts/30_build_tool_plan.py --run-root "$(RUN_ROOT)" --env-result "$${STACK_ENV_RESULT:-$(RUN_ROOT)/evidence/STACK_ENV_CHECK_RESULT.json}" --tool-matrix "$(TOOL_MATRIX)" --tool-matrix-extensions "$(TOOL_MATRIX_EXTENSIONS)" --print-summary
 
 .PHONY: m3
 m3: py-compile tool-plan
@@ -143,7 +114,7 @@ m3: py-compile tool-plan
 
 .PHONY: evidence-pack
 evidence-pack:
-	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make evidence-pack RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make evidence-pack RUN_ROOT=var/runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
 	$(PYTHON) scripts/40_build_evidence_pack.py --run-root "$(RUN_ROOT)" --print-summary
 
 .PHONY: m4
@@ -153,8 +124,8 @@ m4: py-compile evidence-pack
 
 .PHONY: tool-run
 tool-run: check-deps
-	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make tool-run RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
-	$(PYTHON) scripts/50_run_static_tools.py --run-root "$(RUN_ROOT)" --print-summary
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make tool-run RUN_ROOT=var/runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	$(PYTHON) scripts/50_run_static_tools.py --run-root "$(RUN_ROOT)" --recipes "$(RECIPES)" --print-summary
 
 .PHONY: m5
 m5: py-compile tool-run
@@ -163,7 +134,7 @@ m5: py-compile tool-run
 
 .PHONY: candidates
 candidates:
-	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make candidates RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make candidates RUN_ROOT=var/runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
 	$(PYTHON) scripts/60_build_candidates.py --run-root "$(RUN_ROOT)" --print-summary
 
 .PHONY: m6
@@ -173,7 +144,7 @@ m6: py-compile candidates
 
 .PHONY: ai-triage
 ai-triage:
-	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make ai-triage RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make ai-triage RUN_ROOT=var/runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
 	$(PYTHON) scripts/70_prepare_ai_triage.py --run-root "$(RUN_ROOT)" --write-stub --print-summary
 
 .PHONY: m7
@@ -183,7 +154,7 @@ m7: py-compile ai-triage
 
 .PHONY: merge
 merge:
-	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make merge RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make merge RUN_ROOT=var/runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
 	$(PYTHON) scripts/80_merge_results.py --run-root "$(RUN_ROOT)" --print-summary
 
 .PHONY: m8
@@ -193,7 +164,7 @@ m8: py-compile merge
 
 .PHONY: delivery
 delivery:
-	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make delivery RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make delivery RUN_ROOT=var/runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
 	$(PYTHON) scripts/90_render_delivery.py --run-root "$(RUN_ROOT)" --print-summary
 
 .PHONY: m9
@@ -203,7 +174,7 @@ m9: py-compile delivery
 
 .PHONY: validate-run
 validate-run:
-	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make validate-run RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make validate-run RUN_ROOT=var/runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
 	$(PYTHON) scripts/95_validate_run.py --run-root "$(RUN_ROOT)" --print-summary
 
 .PHONY: m10
@@ -213,7 +184,7 @@ m10: py-compile validate-run
 
 .PHONY: debug-trace
 debug-trace:
-	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make debug-trace RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make debug-trace RUN_ROOT=var/runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
 	$(PYTHON) scripts/110_collect_debug.py --run-root "$(RUN_ROOT)" --debug-level "$(DEBUG_LEVEL)" --print-summary
 
 .PHONY: m11
@@ -232,12 +203,12 @@ m12: py-compile benchmark
 
 .PHONY: context-pack
 context-pack:
-	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make context-pack RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make context-pack RUN_ROOT=var/runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
 	$(PYTHON) scripts/72_build_context_pack.py --run-root "$(RUN_ROOT)" --print-summary
 
 .PHONY: deep-explore-input
 deep-explore-input:
-	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make deep-explore-input RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make deep-explore-input RUN_ROOT=var/runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
 	$(PYTHON) scripts/74_prepare_deep_explore.py --run-root "$(RUN_ROOT)" --write-empty-discovered --print-summary
 
 .PHONY: m13
@@ -247,12 +218,12 @@ m13: py-compile context-pack deep-explore-input
 
 .PHONY: tool-execution-plan
 tool-execution-plan:
-	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make tool-execution-plan RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make tool-execution-plan RUN_ROOT=var/runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
 	$(PYTHON) scripts/32_build_tool_execution_plan.py --run-root "$(RUN_ROOT)" --print-summary
 
 .PHONY: ext-tool-run
 ext-tool-run:
-	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make ext-tool-run RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make ext-tool-run RUN_ROOT=var/runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
 	@if [ "$(DRY_RUN)" = "true" ]; then \
 		$(PYTHON) scripts/33_run_tool_execution_plan.py --run-root "$(RUN_ROOT)" --timeout "$(TOOL_TIMEOUT)" --dry-run --print-summary; \
 	else \
@@ -261,12 +232,12 @@ ext-tool-run:
 
 .PHONY: ext-tool-candidates
 ext-tool-candidates:
-	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make ext-tool-candidates RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make ext-tool-candidates RUN_ROOT=var/runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
 	$(PYTHON) scripts/34_import_tool_candidates.py --run-root "$(RUN_ROOT)" --print-summary
 
 .PHONY: merge-external-candidates
 merge-external-candidates:
-	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make merge-external-candidates RUN_ROOT=runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required. Example: make merge-external-candidates RUN_ROOT=var/runs/DEMO/FAST_STATIC_R1_YYYYMMDD_HHMMSS"; exit 2)
 	$(PYTHON) scripts/35_merge_external_candidates.py --run-root "$(RUN_ROOT)" --print-summary
 
 .PHONY: m14
@@ -276,7 +247,7 @@ m14: py-compile stack-env-check tool-plan-stack tool-execution-plan ext-tool-run
 
 .PHONY: audit-static
 audit-static: check-deps
-	@test -n "$(PROJECT_PATH)" || (echo "PROJECT_PATH is required. Example: make audit-static PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project'"; exit 2)
+	@test -n "$(PROJECT_PATH)" || (echo "PROJECT_PATH is required. Example: make audit-static PROJECT_PATH=benchmarks/fixtures/static-demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project'"; exit 2)
 	@if [ "$(DRY_RUN)" = "true" ]; then \
 		$(PYTHON) scripts/130_audit_static.py --project-path "$(PROJECT_PATH)" --project-code "$(PROJECT_CODE)" --project-name "$(PROJECT_NAME)" --round "$(ROUND)" --debug-level "$(DEBUG_LEVEL)" --workspace-mode "$(WORKSPACE_MODE)" --output-root "$(OUTPUT_ROOT)" --network-authorization "$(NETWORK_AUTHORIZATION)" --tool-timeout "$(TOOL_TIMEOUT)" --dry-run-external-tools; \
 	else \
@@ -290,7 +261,7 @@ m15: py-compile audit-static
 
 .PHONY: fast-static
 fast-static: check-deps
-	@test -n "$(PROJECT_PATH)" || (echo "PROJECT_PATH is required. Example: make fast-static PROJECT_PATH=projects/demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project'"; exit 2)
+	@test -n "$(PROJECT_PATH)" || (echo "PROJECT_PATH is required. Example: make fast-static PROJECT_PATH=benchmarks/fixtures/static-demo PROJECT_CODE=DEMO PROJECT_NAME='Demo Project'"; exit 2)
 	$(PYTHON) scripts/100_fast_static.py \
 		--project-path "$(PROJECT_PATH)" \
 		--project-code "$(PROJECT_CODE)" \
@@ -300,6 +271,10 @@ fast-static: check-deps
 		--workspace-mode "$(WORKSPACE_MODE)" \
 		--output-root "$(OUTPUT_ROOT)" \
 		--network-authorization "$(NETWORK_AUTHORIZATION)"
+
+.PHONY: layout-verify
+layout-verify:
+	$(PYTHON) scripts/190_verify_layout.py --print-summary
 
 .PHONY: clean-smoke
 clean-smoke:
@@ -311,7 +286,7 @@ clean-env:
 
 .PHONY: py-compile
 py-compile:
-	$(PYTHON) -m py_compile scripts/00_env_check.py scripts/05_check_deps.py scripts/10_run_init.py scripts/20_build_audit_map.py scripts/30_build_tool_plan.py scripts/31_stack_env_check.py scripts/32_build_tool_execution_plan.py scripts/33_run_tool_execution_plan.py scripts/34_import_tool_candidates.py scripts/35_merge_external_candidates.py scripts/40_build_evidence_pack.py scripts/50_run_static_tools.py scripts/60_build_candidates.py scripts/70_prepare_ai_triage.py scripts/72_build_context_pack.py scripts/74_prepare_deep_explore.py scripts/80_merge_results.py scripts/90_render_delivery.py scripts/95_validate_run.py scripts/100_fast_static.py scripts/110_collect_debug.py scripts/120_run_benchmark.py scripts/130_audit_static.py scripts/99_smoke_check.py
+	$(PYTHON) -m py_compile scripts/00_env_check.py scripts/05_check_deps.py scripts/10_run_init.py scripts/20_build_audit_map.py scripts/30_build_tool_plan.py scripts/31_stack_env_check.py scripts/32_build_tool_execution_plan.py scripts/33_run_tool_execution_plan.py scripts/34_import_tool_candidates.py scripts/35_merge_external_candidates.py scripts/40_build_evidence_pack.py scripts/50_run_static_tools.py scripts/60_build_candidates.py scripts/70_prepare_ai_triage.py scripts/72_build_context_pack.py scripts/74_prepare_deep_explore.py scripts/80_merge_results.py scripts/90_render_delivery.py scripts/95_validate_run.py scripts/100_fast_static.py scripts/110_collect_debug.py scripts/120_run_benchmark.py scripts/130_audit_static.py scripts/190_verify_layout.py scripts/99_smoke_check.py
 
 .PHONY: status
 status:

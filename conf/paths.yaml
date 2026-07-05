@@ -1,0 +1,15 @@
+schema_version: path-config-0.1.0
+
+paths:
+  spec_root: spec
+  conf_root: conf
+  local_root: local
+  var_root: var
+  runs_root: var/runs
+  tmp_root: var/tmp
+  cache_root: var/cache
+  logs_root: var/logs
+  local_projects_root: local/projects
+  local_deliveries_root: local/deliveries
+  local_registry_root: local/registry
+  env_check_result: local/registry/hosts/current/ENV_CHECK_RESULT.local.json

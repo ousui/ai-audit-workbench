@@ -18,7 +18,26 @@ local_registry_history
 stale_or_unknown_docs
 ```
 
-因此如果文档写的构建方式与 `PROJECT_FACTS` 或工具结果冲突，以当前代码事实为准。
+如果文档写法和 `PROJECT_FACTS` 或工具结果冲突，以当前代码事实为准。
+
+## registry 项目 ID
+
+`local/registry/projects/<project_id>/` 不使用 `PROJECT_CODE` 或目录名作为主键。
+
+默认策略：
+
+```text
+manual > git-remote-subpath-hash > svn-url-subpath-hash > dir-hash
+```
+
+Git 项目的默认 ID：
+
+```text
+project_id = git-<sha256_16>
+hash_input = git:<normalized_remote_url>#<repo_relative_path>
+```
+
+`PROJECT_CODE` 只作为 `aliases.project_codes`，不是 registry 主键。
 
 ## 新增产物
 
@@ -32,11 +51,29 @@ var/runs/<project>/<run>/audit-map/PROJECT_DOC_PROFILE.md
 本地长期索引：
 
 ```text
-local/registry/projects/<project_key>/PROJECT_INDEX.json
-local/registry/projects/<project_key>/PROJECT_INDEX.md
+local/registry/projects/<project_id>/PROJECT_INDEX.yaml
 ```
 
 `local/registry` 默认不提交，用于保留本机长期项目画像。
+
+## PROJECT_INDEX.yaml 结构
+
+只使用一个 YAML 文件，不拆分多个 registry 文件。
+
+```yaml
+schema_version: project-index-0.2.0
+identity: {}
+aliases: {}
+generated: {}
+manual: {}
+history: {}
+```
+
+- `identity`：稳定项目身份，程序维护。
+- `aliases`：项目代码、项目名、目录名，程序追加合并，不随意删除。
+- `generated`：当前 run 生成的摘要，程序覆盖。
+- `manual`：人工维护区，程序只初始化，不覆盖。
+- `history`：最近 run 摘要，程序保留最近 20 条。
 
 ## 当前提取内容
 
@@ -83,5 +120,6 @@ make audit-static \
   DRY_RUN=true
 
 cat var/runs/DOC_PROFILE_TEST/FAST_STATIC_*/audit-map/PROJECT_DOC_PROFILE.md
-cat local/registry/projects/DOC_PROFILE_TEST/PROJECT_INDEX.md
+find local/registry/projects -maxdepth 2 -name PROJECT_INDEX.yaml -print
+cat local/registry/projects/*/PROJECT_INDEX.yaml
 ```

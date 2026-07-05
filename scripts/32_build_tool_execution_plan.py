@@ -79,26 +79,82 @@ def command(tool_id: str, profile: str, output_dir: str) -> list[dict[str, Any]]
 
 
 def tool_network_allowed(authorization: dict[str, Any]) -> bool:
-    """Tool-network policy is intentionally separate from AI-agent network authorization.
-
-    NETWORK_AUTHORIZATION is kept as an AI/agent authorization record. External security tools are allowed to use the network by default because their online profiles are part of the audit toolchain.
-    A future personal config can add an explicit tool_network_policy=deny switch.
-    """
     if "tool_network" in authorization:
         return bool(authorization.get("tool_network", {}).get("allowed", True))
     return True
+
+
+def preflight_check(preflight: dict[str, Any], check_id: str) -> dict[str, Any] | None:
+    for item in preflight.get("checks", []):
+        if item.get("check_id") == check_id:
+            return item
+    return None
+
+
+def gate_from_facts(tool_id: str, facts: dict[str, Any]) -> dict[str, Any] | None:
+    gates = facts.get("tool_gates") or {}
+    if tool_id in gates:
+        return gates[tool_id]
+    return None
+
+
+def execution_gate(tool_id: str, facts: dict[str, Any], preflight: dict[str, Any]) -> tuple[str, str, dict[str, Any] | None]:
+    fact_gate = gate_from_facts(tool_id, facts)
+    if fact_gate is not None and not fact_gate.get("applicable"):
+        return "not_applicable_by_manifest", str(fact_gate.get("reason") or "manifest gate not applicable"), fact_gate
+
+    if tool_id in {"govulncheck", "golangci-lint"}:
+        check = preflight_check(preflight, "go-package-load")
+        if check and check.get("status") in {"blocked_requires_context", "blocked_tool_missing"}:
+            return "blocked_requires_context", str(check.get("reason") or "go package load preflight failed"), check
+
+    if tool_id == "mvn":
+        check = preflight_check(preflight, "maven-manifest")
+        if check and check.get("status") == "not_applicable_by_manifest":
+            return "not_applicable_by_manifest", str(check.get("reason") or "pom.xml not found"), check
+
+    if tool_id == "gradle":
+        check = preflight_check(preflight, "gradle-manifest")
+        if check and check.get("status") == "not_applicable_by_manifest":
+            return "not_applicable_by_manifest", str(check.get("reason") or "Gradle manifest not found"), check
+
+    if tool_id == "dependency-check":
+        check = preflight_check(preflight, "java-dependency-manifest")
+        if check and check.get("status") == "not_applicable_by_manifest":
+            return "not_applicable_by_manifest", str(check.get("reason") or "supported dependency manifest not found"), check
+
+    return "planned", "ready", fact_gate
+
+
+def make_item(tool_id: str, profile: str, status: str, reason: str, project_root: Path, out_dir: Path, commands: list[dict[str, Any]], authorization: dict[str, Any], online_allowed: bool, gate_evidence: dict[str, Any] | None) -> dict[str, Any]:
+    return {
+        "tool_id": tool_id,
+        "profile": profile,
+        "status": status,
+        "reason": reason,
+        "network_required": profile == "online",
+        "authorization_status": authorization.get("authorization_mode", "deny"),
+        "tool_network_policy": "allow" if online_allowed else "deny",
+        "commands": commands if status == "planned" else [],
+        "cwd": str(project_root),
+        "output_dir": rel(out_dir),
+        "output_dir_abs": str(out_dir),
+        "result_parser": f"{tool_id}:{profile}",
+        "candidate_mapping": "tool-output-normalization",
+        "gate_evidence": gate_evidence,
+    }
 
 
 def build_plan(run_root: Path) -> dict[str, Any]:
     run_meta = load_json(run_root / "meta" / "RUN_METADATA.json")
     project = load_json(run_root / "meta" / "PROJECT_PROFILE.json")
     authorization_path = run_root / "meta" / "AUTHORIZATION.json"
-    authorization = load_json(authorization_path) if authorization_path.is_file() else {
-        "authorization_mode": "deny",
-        "network": {"allowed": False},
-        "online_rules": {"allowed": False},
-    }
+    authorization = load_json(authorization_path) if authorization_path.is_file() else {"authorization_mode": "deny", "network": {"allowed": False}, "online_rules": {"allowed": False}}
     tool_plan = load_json(run_root / "evidence" / "TOOL_PLAN.json")
+    facts_path = run_root / "audit-map" / "PROJECT_FACTS.json"
+    facts = load_json(facts_path) if facts_path.is_file() else {"tool_gates": {}}
+    preflight_path = run_root / "evidence" / "PREFLIGHT_RESULT.json"
+    preflight = load_json(preflight_path) if preflight_path.is_file() else {"checks": []}
 
     project_root = Path(project["project_path"]["resolved"])
     base_output = run_root / "evidence" / "tool-outputs"
@@ -120,45 +176,24 @@ def build_plan(run_root: Path) -> dict[str, Any]:
             continue
         for profile in ["offline", "online"]:
             out_dir = (base_output / tool_id / profile).resolve()
-            output_dir_rel = rel(out_dir)
             commands = command(tool_id, profile, str(out_dir))
             if not commands:
                 continue
-            if profile == "online" and not online_allowed:
-                items.append({
-                    "tool_id": tool_id,
-                    "profile": profile,
-                    "status": "skipped_by_policy",
-                    "reason": "online_profile_requires_tool_network_policy",
-                    "network_required": True,
-                    "authorization_status": authorization.get("authorization_mode", "deny"),
-                    "tool_network_policy": "deny",
-                    "commands": commands,
-                    "cwd": str(project_root),
-                    "output_dir": output_dir_rel,
-                    "output_dir_abs": str(out_dir),
-                })
+            gate_status, gate_reason, gate_evidence = execution_gate(tool_id, facts, preflight)
+            if gate_status != "planned":
+                items.append(make_item(tool_id, profile, gate_status, gate_reason, project_root, out_dir, commands, authorization, online_allowed, gate_evidence))
                 continue
-            items.append({
-                "tool_id": tool_id,
-                "profile": profile,
-                "status": "planned",
-                "reason": "ready",
-                "network_required": profile == "online",
-                "authorization_status": authorization.get("authorization_mode", "deny"),
-                "tool_network_policy": "allow" if online_allowed else "deny",
-                "commands": commands,
-                "cwd": str(project_root),
-                "output_dir": output_dir_rel,
-                "output_dir_abs": str(out_dir),
-                "result_parser": f"{tool_id}:{profile}",
-                "candidate_mapping": "tool-output-normalization",
-            })
+            if profile == "online" and not online_allowed:
+                items.append(make_item(tool_id, profile, "skipped_by_policy", "online_profile_requires_tool_network_policy", project_root, out_dir, commands, authorization, online_allowed, gate_evidence))
+                continue
+            items.append(make_item(tool_id, profile, "planned", "ready", project_root, out_dir, commands, authorization, online_allowed, gate_evidence))
 
     planned = [x for x in items if x["status"] == "planned"]
     skipped_by_policy = [x for x in items if x["status"] == "skipped_by_policy"]
+    not_app = [x for x in items if x["status"] == "not_applicable_by_manifest"]
+    blocked_ctx = [x for x in items if x["status"] == "blocked_requires_context"]
     return {
-        "schema_version": "tool-execution-plan-0.2.0",
+        "schema_version": "tool-execution-plan-0.3.0",
         "run": {
             "run_id": run_meta.get("run_id"),
             "project_key": run_meta.get("project_key"),
@@ -169,6 +204,10 @@ def build_plan(run_root: Path) -> dict[str, Any]:
             "project_name": project.get("project_name"),
             "git": project.get("git", {}),
         },
+        "inputs": {
+            "project_facts_ref": "audit-map/PROJECT_FACTS.json" if facts_path.is_file() else None,
+            "preflight_ref": "evidence/PREFLIGHT_RESULT.json" if preflight_path.is_file() else None,
+        },
         "authorization": {
             "agent_network_authorization_mode": authorization.get("authorization_mode", "deny"),
             "tool_online_allowed": online_allowed,
@@ -178,13 +217,16 @@ def build_plan(run_root: Path) -> dict[str, Any]:
         "policy": {
             "default_profiles": ["offline", "online"],
             "missing_tool_behavior": "skip_and_record",
-            "online_failure_behavior": "degrade_not_block",
-            "offline_failure_behavior": "degrade_not_block",
+            "manifest_not_applicable_behavior": "not_applicable_by_manifest",
+            "preflight_block_behavior": "blocked_requires_context",
+            "tool_failure_behavior": "record_failure",
             "write_project_source": False,
         },
         "summary": {
-            "status": "planned" if planned else "no_executable_tools",
+            "status": "planned" if planned else ("blocked_requires_context" if blocked_ctx else "no_executable_tools"),
             "planned_items": len(planned),
+            "not_applicable_by_manifest_items": len(not_app),
+            "blocked_requires_context_items": len(blocked_ctx),
             "skipped_by_policy_items": len(skipped_by_policy),
             "skipped_missing_tools": len(skipped),
         },
@@ -198,15 +240,17 @@ def render_md(plan: dict[str, Any]) -> str:
         "# TOOL_EXECUTION_PLAN", "",
         f"- Status: `{plan['summary']['status']}`",
         f"- Planned items: {plan['summary']['planned_items']}",
+        f"- Not applicable by manifest: {plan['summary']['not_applicable_by_manifest_items']}",
+        f"- Blocked requires context: {plan['summary']['blocked_requires_context_items']}",
         f"- Skipped by policy: {plan['summary']['skipped_by_policy_items']}",
         f"- Skipped missing tools: {plan['summary']['skipped_missing_tools']}",
         f"- Tool online allowed: {plan['authorization']['tool_online_allowed']}", "",
         "## Items", "",
-        "| Tool | Profile | Status | Network | Commands |",
-        "|---|---|---|---:|---:|",
+        "| Tool | Profile | Status | Reason | Network | Commands |",
+        "|---|---|---|---|---:|---:|",
     ]
     for item in plan.get("items", []):
-        lines.append(f"| `{item['tool_id']}` | {item['profile']} | {item['status']} | {item['network_required']} | {len(item.get('commands') or [])} |")
+        lines.append(f"| `{item['tool_id']}` | {item['profile']} | {item['status']} | {item.get('reason')} | {item['network_required']} | {len(item.get('commands') or [])} |")
     if plan.get("skipped_tools"):
         lines.extend(["", "## Skipped missing tools", ""])
         for item in plan["skipped_tools"]:
@@ -219,6 +263,8 @@ def print_summary(plan: dict[str, Any]) -> None:
     print("tool-execution-plan summary")
     print(f"  status: {s['status']}")
     print(f"  planned_items: {s['planned_items']}")
+    print(f"  not_applicable_by_manifest_items: {s['not_applicable_by_manifest_items']}")
+    print(f"  blocked_requires_context_items: {s['blocked_requires_context_items']}")
     print(f"  skipped_by_policy_items: {s['skipped_by_policy_items']}")
     print(f"  skipped_missing_tools: {s['skipped_missing_tools']}")
     print(f"  tool_online_allowed: {plan['authorization']['tool_online_allowed']}")

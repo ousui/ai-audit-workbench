@@ -1,0 +1,201 @@
+schema_version: "tool-matrix-extensions-0.1.0"
+
+description: >
+  Stack-specific and common static audit tool extensions.
+  These tools are selected by tool-plan according to detected project stacks.
+
+tools:
+  semgrep:
+    display_name: "Semgrep"
+    category: "common_static"
+    required_level: "recommended_for_static"
+    stages: ["sast", "tool-run", "candidate-build"]
+    stacks: ["all"]
+    purpose:
+      - "Run static security rules across multiple languages."
+      - "Detect secrets, insecure APIs, and common SAST patterns."
+    detection:
+      commands: ["semgrep --version"]
+      locate: ["command -v semgrep"]
+    missing_impact: "Common SAST rule coverage is reduced."
+    missing_policy: "record_missing_not_blocking"
+
+  gitleaks:
+    display_name: "gitleaks"
+    category: "common_static"
+    required_level: "recommended_for_static"
+    stages: ["sast", "secret-scan", "tool-run"]
+    stacks: ["all"]
+    detection:
+      commands: ["gitleaks version"]
+      locate: ["command -v gitleaks"]
+    missing_impact: "Git secret scanning coverage is reduced."
+    missing_policy: "record_missing_not_blocking"
+
+  trivy:
+    display_name: "Trivy"
+    category: "common_static"
+    required_level: "recommended_for_static"
+    stages: ["sast", "dependency-scan", "container-scan"]
+    stacks: ["all"]
+    detection:
+      commands: ["trivy --version"]
+      locate: ["command -v trivy"]
+    missing_impact: "Filesystem and dependency vulnerability scan coverage is reduced."
+    missing_policy: "record_missing_not_blocking"
+
+  go:
+    display_name: "Go SDK"
+    category: "sdk"
+    required_level: "recommended_for_static"
+    stages: ["stack-scan", "dependency-scan", "quality-scan"]
+    stacks: ["go"]
+    detection:
+      commands: ["go version"]
+      locate: ["command -v go"]
+    missing_impact: "Go-specific dependency and quality scans cannot run."
+    missing_policy: "record_missing_not_blocking"
+
+  govulncheck:
+    display_name: "govulncheck"
+    category: "security"
+    required_level: "recommended_for_static"
+    stages: ["dependency-scan", "go-security"]
+    stacks: ["go"]
+    detection:
+      commands: ["govulncheck -version"]
+      locate: ["command -v govulncheck"]
+    missing_impact: "Go vulnerability scan coverage is reduced."
+    missing_policy: "record_missing_not_blocking"
+
+  golangci-lint:
+    display_name: "golangci-lint"
+    category: "security"
+    required_level: "recommended_for_static"
+    stages: ["quality-scan", "go-quality"]
+    stacks: ["go"]
+    detection:
+      commands: ["golangci-lint --version"]
+      locate: ["command -v golangci-lint"]
+    missing_impact: "Go quality scan coverage is reduced."
+    missing_policy: "record_missing_not_blocking"
+
+  swag:
+    display_name: "swag"
+    category: "codegen_assist"
+    required_level: "recommended_for_static"
+    stages: ["go-preflight", "assisted-change"]
+    stacks: ["go"]
+    detection:
+      commands: ["swag --version"]
+      locate: ["command -v swag"]
+    missing_impact: "Go Swagger docs generation recovery may be unavailable when docs package is missing."
+    missing_policy: "record_missing_not_blocking"
+
+  java:
+    display_name: "Java SDK"
+    category: "sdk"
+    required_level: "recommended_for_static"
+    stages: ["stack-scan", "java-security"]
+    stacks: ["java_jvm", "android"]
+    detection:
+      commands: ["java -version"]
+      locate: ["command -v java"]
+    missing_impact: "Java/JVM dependency and security scans cannot run."
+    missing_policy: "record_missing_not_blocking"
+
+  mvn:
+    display_name: "Maven"
+    category: "sdk"
+    required_level: "recommended_for_static"
+    stages: ["dependency-scan", "java-security"]
+    stacks: ["java_jvm"]
+    detection:
+      commands: ["mvn --version"]
+      locate: ["command -v mvn"]
+    missing_impact: "Maven project dependency checks cannot run."
+    missing_policy: "record_missing_not_blocking"
+
+  gradle:
+    display_name: "Gradle"
+    category: "sdk"
+    required_level: "recommended_for_static"
+    stages: ["dependency-scan", "java-security", "android-security"]
+    stacks: ["java_jvm", "android"]
+    detection:
+      commands: ["gradle --version"]
+      locate: ["command -v gradle"]
+    missing_impact: "Gradle project dependency checks cannot run unless wrapper exists."
+    missing_policy: "record_missing_not_blocking"
+
+  dependency-check:
+    display_name: "OWASP Dependency-Check"
+    category: "security"
+    required_level: "recommended_for_static"
+    stages: ["dependency-scan", "java-security"]
+    stacks: ["java_jvm", "android"]
+    detection:
+      commands: ["dependency-check --version"]
+      locate: ["command -v dependency-check"]
+    missing_impact: "Java dependency CVE scan coverage is reduced."
+    missing_policy: "record_missing_not_blocking"
+
+  node:
+    display_name: "Node.js"
+    category: "sdk"
+    required_level: "recommended_for_static"
+    stages: ["stack-scan", "frontend-security"]
+    stacks: ["node_frontend"]
+    detection:
+      commands: ["node --version"]
+      locate: ["command -v node"]
+    missing_impact: "Node/frontend dependency checks cannot run."
+    missing_policy: "record_missing_not_blocking"
+
+  npm:
+    display_name: "npm"
+    category: "sdk"
+    required_level: "recommended_for_static"
+    stages: ["dependency-scan", "frontend-security"]
+    stacks: ["node_frontend"]
+    detection:
+      commands: ["npm --version"]
+      locate: ["command -v npm"]
+    missing_impact: "npm audit and npm-based tools cannot run."
+    missing_policy: "record_missing_not_blocking"
+
+  pnpm:
+    display_name: "pnpm"
+    category: "sdk"
+    required_level: "optional"
+    stages: ["dependency-scan", "frontend-security"]
+    stacks: ["node_frontend"]
+    detection:
+      commands: ["pnpm --version"]
+      locate: ["command -v pnpm"]
+    missing_impact: "pnpm-specific audit may be unavailable for pnpm projects."
+    missing_policy: "record_missing_not_blocking"
+
+  yarn:
+    display_name: "Yarn"
+    category: "sdk"
+    required_level: "optional"
+    stages: ["dependency-scan", "frontend-security"]
+    stacks: ["node_frontend"]
+    detection:
+      commands: ["yarn --version"]
+      locate: ["command -v yarn"]
+    missing_impact: "Yarn-specific audit may be unavailable for Yarn projects."
+    missing_policy: "record_missing_not_blocking"
+
+  retire:
+    display_name: "retire.js"
+    category: "security"
+    required_level: "recommended_for_static"
+    stages: ["dependency-scan", "frontend-security"]
+    stacks: ["node_frontend"]
+    detection:
+      commands: ["retire --version"]
+      locate: ["command -v retire"]
+    missing_impact: "Frontend dependency vulnerability scan coverage is reduced."
+    missing_policy: "record_missing_not_blocking"

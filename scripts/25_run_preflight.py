@@ -92,23 +92,10 @@ def go_recovery_hints(stderr: str, facts: dict[str, Any]) -> list[str]:
 def check_go_package_load(project_root: Path, facts: dict[str, Any], env: dict[str, Any], timeout: int) -> dict[str, Any]:
     go_facts = facts.get("manifests", {}).get("go", {})
     if not go_facts.get("has_go_mod"):
-        return {
-            "check_id": "go-package-load",
-            "subject": "go",
-            "status": "not_applicable_by_manifest",
-            "reason": "go.mod not found",
-            "required_for_tools": ["govulncheck", "golangci-lint"],
-        }
+        return {"check_id": "go-package-load", "subject": "go", "status": "not_applicable_by_manifest", "reason": "go.mod not found", "required_for_tools": ["govulncheck", "golangci-lint"]}
     if not tool_available(env, "go"):
-        return {
-            "check_id": "go-package-load",
-            "subject": "go",
-            "status": "blocked_tool_missing",
-            "reason": "go tool is not available",
-            "required_for_tools": ["govulncheck", "golangci-lint"],
-        }
-    command = "go list ./..."
-    result = run_command(command, project_root, timeout)
+        return {"check_id": "go-package-load", "subject": "go", "status": "blocked_tool_missing", "reason": "go tool is not available", "required_for_tools": ["govulncheck", "golangci-lint"]}
+    result = run_command("go list ./...", project_root, timeout)
     status = "completed" if result["exit_code"] == 0 else "blocked_requires_context"
     return {
         "check_id": "go-package-load",
@@ -122,14 +109,7 @@ def check_go_package_load(project_root: Path, facts: dict[str, Any], env: dict[s
 
 
 def manifest_check(check_id: str, subject: str, applicable: bool, reason_ok: str, reason_no: str, required_for: list[str], evidence: list[str]) -> dict[str, Any]:
-    return {
-        "check_id": check_id,
-        "subject": subject,
-        "status": "completed" if applicable else "not_applicable_by_manifest",
-        "reason": reason_ok if applicable else reason_no,
-        "required_for_tools": required_for,
-        "evidence": evidence[:20],
-    }
+    return {"check_id": check_id, "subject": subject, "status": "completed" if applicable else "not_applicable_by_manifest", "reason": reason_ok if applicable else reason_no, "required_for_tools": required_for, "evidence": evidence[:20]}
 
 
 def build_preflight(run_root: Path, timeout: int) -> dict[str, Any]:
@@ -143,7 +123,6 @@ def build_preflight(run_root: Path, timeout: int) -> dict[str, Any]:
 
     java = facts.get("manifests", {}).get("java", {})
     node = facts.get("manifests", {}).get("node", {})
-
     checks = [
         check_go_package_load(project_root, facts, env, timeout),
         manifest_check("maven-manifest", "java", bool(java.get("has_pom")), "pom.xml found", "pom.xml not found", ["mvn"], java.get("pom_files") or []),
@@ -153,32 +132,15 @@ def build_preflight(run_root: Path, timeout: int) -> dict[str, Any]:
         manifest_check("pnpm-lock", "node", bool(node.get("has_pnpm_lock")), "pnpm-lock.yaml found", "pnpm-lock.yaml not found", ["pnpm"], node.get("pnpm_lock_files") or []),
         manifest_check("yarn-lock", "node", bool(node.get("has_yarn_lock")), "yarn.lock found", "yarn.lock not found", ["yarn"], node.get("yarn_lock_files") or []),
     ]
-
     blocked = [x for x in checks if x.get("status") in {"blocked_requires_context", "blocked_tool_missing"}]
     not_app = [x for x in checks if x.get("status") == "not_applicable_by_manifest"]
     return {
-        "schema_version": "preflight-result-0.1.0",
+        "schema_version": "preflight-result-0.1.1",
         "generated_at": now(),
-        "run": {
-            "run_id": run_meta.get("run_id"),
-            "project_key": run_meta.get("project_key"),
-            "audit_mode": run_meta.get("audit_mode"),
-        },
-        "project": {
-            "project_name": profile.get("project_name"),
-            "project_path": str(project_root),
-            "git": profile.get("git", {}),
-        },
-        "inputs": {
-            "project_facts_ref": "audit-map/PROJECT_FACTS.json",
-            "stack_env_check_ref": "evidence/STACK_ENV_CHECK_RESULT.json" if env_path.is_file() else None,
-        },
-        "summary": {
-            "status": "blocked_requires_context" if blocked else "completed",
-            "checks": len(checks),
-            "blocked_checks": len(blocked),
-            "not_applicable_checks": len(not_app),
-        },
+        "run": {"run_id": run_meta.get("run_id"), "project_key": run_meta.get("project_key"), "audit_mode": run_meta.get("audit_mode")},
+        "project": {"project_name": profile.get("project_name"), "project_path": str(project_root), "git": profile.get("git", {})},
+        "inputs": {"project_facts_ref": "audit-map/PROJECT_FACTS.json", "stack_env_check_ref": "evidence/STACK_ENV_CHECK_RESULT.json" if env_path.is_file() else None},
+        "summary": {"status": "blocked_requires_context" if blocked else "completed", "checks": len(checks), "blocked_checks": len(blocked), "not_applicable_checks": len(not_app)},
         "checks": checks,
     }
 
@@ -194,13 +156,32 @@ def render_md(result: dict[str, Any]) -> str:
         "| Check | Status | Reason | Tools |",
         "|---|---|---|---|",
     ]
+    hint_blocks: list[tuple[str, list[str]]] = []
+    command_blocks: list[tuple[str, dict[str, Any]]] = []
     for item in result.get("checks", []):
         tools = ", ".join(item.get("required_for_tools") or []) or "-"
         lines.append(f"| `{item['check_id']}` | `{item['status']}` | {item.get('reason')} | `{tools}` |")
         if item.get("recovery_hints"):
-            for hint in item["recovery_hints"]:
-                lines.append(f"|  |  | hint: {hint} |  |")
+            hint_blocks.append((item["check_id"], item["recovery_hints"]))
+        if item.get("status") in {"blocked_requires_context", "blocked_tool_missing"} and item.get("command_result"):
+            command_blocks.append((item["check_id"], item["command_result"]))
     lines.append("")
+    if hint_blocks:
+        lines.extend(["## Recovery hints", ""])
+        for check_id, hints in hint_blocks:
+            lines.append(f"### `{check_id}`")
+            for hint in hints:
+                lines.append(f"- {hint}")
+            lines.append("")
+    if command_blocks:
+        lines.extend(["## Blocked command details", ""])
+        for check_id, result_item in command_blocks:
+            lines.append(f"### `{check_id}`")
+            lines.append(f"- Command: `{result_item.get('command')}`")
+            lines.append(f"- Exit code: `{result_item.get('exit_code')}`")
+            stderr = (result_item.get("stderr") or "").strip()
+            if stderr:
+                lines.extend(["", "```text", stderr[:1200], "```", ""])
     return "\n".join(lines)
 
 
@@ -222,14 +203,12 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--timeout", type=int, default=60)
     parser.add_argument("--print-summary", action="store_true")
     args = parser.parse_args(argv)
-
     run_root = Path(args.run_root)
     if not run_root.is_absolute():
         run_root = (ROOT / run_root).resolve()
     if not (run_root / "audit-map" / "PROJECT_FACTS.json").is_file():
         print("[FAIL] PROJECT_FACTS.json not found. Run audit-map first.", file=sys.stderr)
         return 2
-
     result = build_preflight(run_root, args.timeout)
     out = run_root / "evidence"
     write_json(out / "PREFLIGHT_RESULT.json", result)

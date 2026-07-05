@@ -33,6 +33,10 @@ def build_evidence_pack(run_root: Path) -> dict[str, Any]:
     run_meta = load_json(run_root / "meta" / "RUN_METADATA.json")
     profile = load_json(run_root / "meta" / "PROJECT_PROFILE.json")
     audit_map = load_json(run_root / "audit-map" / "AUDIT_MAP.json")
+    project_facts_path = run_root / "audit-map" / "PROJECT_FACTS.json"
+    project_facts = load_json(project_facts_path) if project_facts_path.is_file() else audit_map.get("project_facts", {})
+    preflight_path = run_root / "evidence" / "PREFLIGHT_RESULT.json"
+    preflight = load_json(preflight_path) if preflight_path.is_file() else None
     tool_plan_path = run_root / "evidence" / "TOOL_PLAN.json"
     tool_plan = load_json(tool_plan_path) if tool_plan_path.is_file() else None
 
@@ -40,7 +44,7 @@ def build_evidence_pack(run_root: Path) -> dict[str, Any]:
     signals = audit_map.get("signals", {})
 
     return {
-        "schema_version": "evidence-pack-0.1.0",
+        "schema_version": "evidence-pack-0.2.0",
         "run": {
             "run_id": run_meta.get("run_id"),
             "project_key": run_meta.get("project_key"),
@@ -59,13 +63,22 @@ def build_evidence_pack(run_root: Path) -> dict[str, Any]:
             "dynamic_testing": False,
             "reverse_analysis": False,
             "read_only_project": True,
-            "source": "audit-map + tool-plan",
+            "source": "audit-map + project-facts + preflight + tool-plan",
         },
         "audit_map_summary": {
             "summary": audit_map.get("summary", {}),
             "extension_counts": audit_map.get("extension_counts", {}),
             "detected_stacks": audit_map.get("stacks", {}).get("detected_stacks", []),
             "detected_stack_ids": audit_map.get("stacks", {}).get("detected_stack_ids", []),
+        },
+        "project_facts_summary": {
+            "build_systems": project_facts.get("build_systems", []),
+            "package_managers": project_facts.get("package_managers", []),
+            "tool_gates": project_facts.get("tool_gates", {}),
+        },
+        "preflight_summary": preflight.get("summary", {}) if preflight else {
+            "status": "missing",
+            "note": "PREFLIGHT_RESULT.json not found. Run preflight before evidence-pack for full context.",
         },
         "tool_plan_summary": tool_plan.get("summary", {}) if tool_plan else {
             "status": "missing",
@@ -87,7 +100,7 @@ def build_evidence_pack(run_root: Path) -> dict[str, Any]:
         },
         "notes": [
             "Evidence pack contains deterministic facts and static signals only.",
-            "It must not be treated as a vulnerability report.",
+            "Project facts and preflight results guide tool applicability, but do not prove risk by themselves.",
             "AI triage and later merge stages must not create final findings without candidate traceability.",
         ],
     }
@@ -131,7 +144,15 @@ def render_md(pack: dict[str, Any]) -> str:
     ]
     stacks = pack.get("audit_map_summary", {}).get("detected_stack_ids") or []
     lines.append("- " + (", ".join(stacks) if stacks else "None"))
-    lines.append("")
+    lines.extend([
+        "",
+        "## Project facts / preflight", "",
+        f"- Build systems: `{', '.join(pack.get('project_facts_summary', {}).get('build_systems') or []) or '-'}`",
+        f"- Package managers: `{', '.join(pack.get('project_facts_summary', {}).get('package_managers') or []) or '-'}`",
+        f"- Preflight status: `{pack.get('preflight_summary', {}).get('status')}`",
+        f"- Preflight blocked checks: {pack.get('preflight_summary', {}).get('blocked_checks', '-')}",
+        "",
+    ])
     for key, title in [
         ("manifests", "Manifests"),
         ("configs", "Configs"),
@@ -160,6 +181,8 @@ def print_summary(pack: dict[str, Any]) -> None:
     print(f"  run_id: {pack['run'].get('run_id')}")
     print(f"  project: {pack['project'].get('project_name')}")
     print(f"  stacks: {', '.join(pack['audit_map_summary'].get('detected_stack_ids') or []) or '-'}")
+    print(f"  build_systems: {', '.join(pack.get('project_facts_summary', {}).get('build_systems') or []) or '-'}")
+    print(f"  preflight_status: {pack.get('preflight_summary', {}).get('status')}")
     print(f"  tool_plan_status: {pack['tool_plan_summary'].get('status')}")
     print(f"  route_files: {pack['key_files']['route_files'].get('count')}")
     print(f"  auth_files: {pack['key_files']['auth_files'].get('count')}")

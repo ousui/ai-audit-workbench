@@ -56,7 +56,8 @@ def write_flow_record(run_root: Path, record: dict) -> None:
         f"- Status: `{record['status']}`",
         f"- Run root: `{record['run_root']}`",
         f"- Network authorization: `{record['network_authorization']}`",
-        f"- Dry run external tools: `{record['dry_run_external_tools']}`", "",
+        f"- Dry run external tools: `{record['dry_run_external_tools']}`",
+        f"- Assisted change: `{record.get('assisted_change')}`", "",
         "## Steps", "",
         "| Step | Status | Exit code |",
         "|---|---|---:|",
@@ -64,6 +65,11 @@ def write_flow_record(run_root: Path, record: dict) -> None:
     for item in record.get("steps", []):
         lines.append(f"| {item['name']} | {item['status']} | {item.get('exit_code', '-')} |")
     (out / "AUDIT_STATIC_FLOW.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def reset_if_needed(run_root: Path, flow_record: dict) -> None:
+    code = run([sys.executable, "scripts/27_reset_assisted_change.py", "--run-root", str(run_root), "--print-summary"])
+    flow_record["steps"].append({"name": "assisted-change-reset-on-failure", "status": "completed" if code == 0 else "failed", "exit_code": code})
 
 
 def main(argv: list[str]) -> int:
@@ -79,6 +85,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--network-authorization", default="deny", choices=["deny", "once", "always"])
     parser.add_argument("--tool-timeout", type=int, default=900)
     parser.add_argument("--dry-run-external-tools", action="store_true")
+    parser.add_argument("--assisted-change", default="none", choices=["none", "swag_init"])
     parser.add_argument("--no-stub", action="store_true", help="Do not write stub AI triage result.")
     args = parser.parse_args(argv)
 
@@ -91,6 +98,7 @@ def main(argv: list[str]) -> int:
     tool_matrix = str(SPEC_ENV / "TOOL_MATRIX.yaml")
     tool_matrix_ext = str(SPEC_ENV / "TOOL_MATRIX_EXTENSIONS.yaml")
     recipes = str(SPEC_RULES / "candidate-recipes.yaml")
+    assisted_enabled = args.assisted_change != "none"
 
     steps: list[tuple[str, list[str]]] = [
         ("check-deps", [sys.executable, "scripts/05_check_deps.py", "--strict", "--print-summary"]),
@@ -99,8 +107,19 @@ def main(argv: list[str]) -> int:
         ("stack-env-check", [sys.executable, "scripts/31_stack_env_check.py", "--run-root", str(run_root), "--include-all-tools", "--tool-matrix", tool_matrix, "--tool-matrix-extensions", tool_matrix_ext, "--print-summary"]),
         ("tool-plan", [sys.executable, "scripts/30_build_tool_plan.py", "--run-root", str(run_root), "--env-result", str(run_root / "evidence" / "STACK_ENV_CHECK_RESULT.json"), "--tool-matrix", tool_matrix, "--tool-matrix-extensions", tool_matrix_ext, "--print-summary"]),
         ("preflight", [sys.executable, "scripts/25_run_preflight.py", "--run-root", str(run_root), "--print-summary"]),
+    ]
+    if assisted_enabled:
+        steps.extend([
+            ("assisted-change", [sys.executable, "scripts/26_run_assisted_change.py", "--run-root", str(run_root), "--allow", args.assisted_change, "--print-summary"]),
+            ("preflight-after-assisted-change", [sys.executable, "scripts/25_run_preflight.py", "--run-root", str(run_root), "--print-summary"]),
+        ])
+    steps.extend([
         ("tool-execution-plan", [sys.executable, "scripts/32_build_tool_execution_plan.py", "--run-root", str(run_root), "--print-summary"]),
         ("ext-tool-run", [sys.executable, "scripts/33_run_tool_execution_plan.py", "--run-root", str(run_root), "--timeout", str(args.tool_timeout), "--print-summary"] + (["--dry-run"] if args.dry_run_external_tools else [])),
+    ])
+    if assisted_enabled:
+        steps.append(("assisted-change-reset", [sys.executable, "scripts/27_reset_assisted_change.py", "--run-root", str(run_root), "--print-summary"]))
+    steps.extend([
         ("ext-tool-candidates", [sys.executable, "scripts/34_import_tool_candidates.py", "--run-root", str(run_root), "--print-summary"]),
         ("evidence-pack", [sys.executable, "scripts/40_build_evidence_pack.py", "--run-root", str(run_root), "--print-summary"]),
         ("built-in-tool-run", [sys.executable, "scripts/50_run_static_tools.py", "--run-root", str(run_root), "--recipes", recipes, "--print-summary"]),
@@ -110,18 +129,18 @@ def main(argv: list[str]) -> int:
         ("merge", [sys.executable, "scripts/80_merge_results.py", "--run-root", str(run_root), "--print-summary"]),
         ("delivery", [sys.executable, "scripts/90_render_delivery.py", "--run-root", str(run_root), "--print-summary"]),
         ("validate", [sys.executable, "scripts/95_validate_run.py", "--run-root", str(run_root), "--print-summary"]),
-    ]
-
+    ])
     if args.debug_level != "off":
         steps.append(("debug-trace", [sys.executable, "scripts/110_collect_debug.py", "--run-root", str(run_root), "--debug-level", args.debug_level, "--print-summary"]))
 
     flow_record = {
-        "schema_version": "audit-static-flow-0.3.0",
+        "schema_version": "audit-static-flow-0.4.0",
         "status": "running",
         "run_root": str(run_root),
         "project_path": str(project_path),
         "network_authorization": args.network_authorization,
         "dry_run_external_tools": args.dry_run_external_tools,
+        "assisted_change": args.assisted_change,
         "steps": [],
     }
 
@@ -130,6 +149,8 @@ def main(argv: list[str]) -> int:
         flow_record["steps"].append({"name": name, "status": "completed" if code == 0 else "failed", "exit_code": code})
         if code != 0:
             flow_record["status"] = "failed"
+            if assisted_enabled and name != "assisted-change-reset":
+                reset_if_needed(run_root, flow_record)
             write_flow_record(run_root, flow_record)
             print(f"[FAIL] step failed: {name} exit={code}", file=sys.stderr)
             print(f"Run root: {run_root}", file=sys.stderr)

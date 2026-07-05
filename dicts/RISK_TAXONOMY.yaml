@@ -1,0 +1,222 @@
+schema_version: risk-taxonomy-0.1.0
+status: draft
+
+priority_order:
+  - P0
+  - P1
+  - P2
+  - P3
+
+sort_order:
+  - risk_level
+  - risk_parent
+  - risk_subtype
+  - discovered_order
+
+risk_levels:
+  P0:
+    label_zh: 紧急风险
+    label_en: Critical
+    description_zh: 可直接导致重大资产损失、系统性数据泄露、核心权限失控、资金风险或大范围业务中断。
+  P1:
+    label_zh: 高危风险
+    label_en: High
+    description_zh: 可形成明确攻击链、影响关键业务或敏感数据，需要优先整改。
+  P2:
+    label_zh: 中危风险
+    label_en: Medium
+    description_zh: 存在可利用条件或安全控制不足，需纳入整改计划。
+  P3:
+    label_zh: 低危/治理风险
+    label_en: Low / Governance
+    description_zh: 影响安全基线、工程治理、可维护性或长期风险控制。
+
+risk_parents:
+  ACCESS_CONTROL:
+    label_zh: 访问控制
+    description_zh: 越权、权限绕过、资源归属校验缺失、管理端权限控制不足。
+    default_level: P1
+    sort_index: 10
+    subtypes:
+      IDOR: 水平越权 / 资源归属校验缺失
+      PRIVILEGE_ESCALATION: 权限提升
+      ADMIN_AUTHZ_BYPASS: 管理端授权绕过
+      TENANT_ISOLATION_FAILURE: 租户隔离失败
+  AUTHENTICATION_SESSION:
+    label_zh: 认证与会话
+    description_zh: 登录、Token、Session、验证码、密码策略、认证状态管理相关问题。
+    default_level: P1
+    sort_index: 20
+    subtypes:
+      AUTH_BYPASS: 认证绕过
+      WEAK_PASSWORD_POLICY: 弱密码策略
+      TOKEN_EXPOSURE: Token 暴露
+      SESSION_FIXATION: 会话固定
+      MFA_BYPASS: 多因素认证绕过
+  INPUT_INJECTION:
+    label_zh: 输入与注入
+    description_zh: SQL 注入、命令注入、模板注入、表达式注入、反序列化等输入驱动风险。
+    default_level: P1
+    sort_index: 30
+    subtypes:
+      SQL_INJECTION: SQL 注入
+      COMMAND_INJECTION: 命令注入
+      TEMPLATE_INJECTION: 模板注入
+      EXPRESSION_INJECTION: 表达式注入
+      INSECURE_DESERIALIZATION: 不安全反序列化
+  CRYPTOGRAPHY_SECRETS:
+    label_zh: 密码学与敏感凭据
+    description_zh: 密钥、密码、证书、加密算法、签名校验、随机数等问题。
+    default_level: P1
+    sort_index: 40
+    subtypes:
+      SECRET_HARDCODED: 硬编码密钥/密码
+      SECRET_LEAKAGE: 敏感凭据泄露
+      WEAK_CRYPTO: 弱加密算法
+      INSECURE_RANDOM: 不安全随机数
+      CERTIFICATE_PRIVATE_KEY_EXPOSURE: 证书私钥暴露
+  CONFIGURATION_EXPOSURE:
+    label_zh: 配置与暴露面
+    description_zh: 环境配置、调试开关、服务暴露、默认配置、错误响应泄露等问题。
+    default_level: P2
+    sort_index: 50
+    subtypes:
+      DEBUG_ENABLED: 调试模式开启
+      CONFIG_FILE_EXPOSURE: 配置文件暴露
+      VERBOSE_ERROR_EXPOSURE: 详细错误泄露
+      INSECURE_DEFAULT: 不安全默认配置
+      MANAGEMENT_INTERFACE_EXPOSED: 管理接口暴露
+  VULNERABLE_DEPENDENCY:
+    label_zh: 依赖漏洞
+    description_zh: 第三方库、框架、基础镜像、运行时组件存在已知漏洞或过期风险。
+    default_level: P2
+    sort_index: 60
+    subtypes:
+      KNOWN_CVE: 已知 CVE
+      OUTDATED_COMPONENT: 过期组件
+      VULNERABLE_RUNTIME: 运行时漏洞
+      VULNERABLE_IMAGE: 镜像漏洞
+  SUPPLY_CHAIN_INTEGRITY:
+    label_zh: 供应链与完整性
+    description_zh: 构建、发布、制品、脚本、依赖来源、CI/CD 完整性相关风险。
+    default_level: P2
+    sort_index: 70
+    subtypes:
+      UNSAFE_BUILD_SCRIPT: 不安全构建脚本
+      UNPINNED_DEPENDENCY: 依赖未固定
+      UNTRUSTED_PACKAGE_SOURCE: 不可信包源
+      ARTIFACT_INTEGRITY_MISSING: 制品完整性校验缺失
+  DATA_PROTECTION_PRIVACY:
+    label_zh: 数据保护与隐私
+    description_zh: 敏感数据、个人信息、日志脱敏、数据传输和存储保护问题。
+    default_level: P1
+    sort_index: 80
+    subtypes:
+      PII_EXPOSURE: 个人信息暴露
+      SENSITIVE_DATA_IN_LOG: 日志记录敏感数据
+      DATA_OVEREXPOSURE: 数据过度返回
+      INSECURE_DATA_STORAGE: 不安全数据存储
+  FILE_OPERATION:
+    label_zh: 文件操作
+    description_zh: 文件上传、下载、路径穿越、文件类型校验、任意文件读写等问题。
+    default_level: P1
+    sort_index: 90
+    subtypes:
+      ARBITRARY_FILE_UPLOAD: 任意文件上传
+      PATH_TRAVERSAL: 路径穿越
+      ARBITRARY_FILE_READ: 任意文件读取
+      ARBITRARY_FILE_WRITE: 任意文件写入
+      MISSING_FILE_TYPE_VALIDATION: 文件类型校验缺失
+  NETWORK_SSRF_REQUEST:
+    label_zh: 网络请求与 SSRF
+    description_zh: 服务端请求伪造、回调地址、代理请求、Webhook、URL 拉取等风险。
+    default_level: P1
+    sort_index: 100
+    subtypes:
+      SSRF: 服务端请求伪造
+      UNRESTRICTED_CALLBACK: 回调地址未限制
+      INSECURE_PROXY_REQUEST: 不安全代理请求
+      WEBHOOK_VALIDATION_MISSING: Webhook 校验缺失
+  BUSINESS_LOGIC:
+    label_zh: 业务逻辑
+    description_zh: 交易、支付、提现、订单、优惠、风控、状态机和业务链路中的安全问题。
+    default_level: P1
+    sort_index: 110
+    subtypes:
+      PAYMENT_LOGIC_BYPASS: 支付逻辑绕过
+      ORDER_STATE_BYPASS: 订单状态绕过
+      WITHDRAWAL_RISK: 提现/资金风险
+      RATE_LIMIT_MISSING: 频率限制缺失
+      BUSINESS_RULE_BYPASS: 业务规则绕过
+  CONCURRENCY_IDEMPOTENCY:
+    label_zh: 并发与幂等
+    description_zh: 重放、重复提交、并发竞态、幂等控制和一致性问题。
+    default_level: P2
+    sort_index: 120
+    subtypes:
+      RACE_CONDITION: 竞态条件
+      IDEMPOTENCY_MISSING: 幂等缺失
+      REPLAY_RISK: 重放风险
+      DOUBLE_SPEND_OR_DOUBLE_SUBMIT: 重复支付/重复提交
+  LOGGING_MONITORING:
+    label_zh: 日志与监控
+    description_zh: 审计日志、告警、追踪、异常监控、攻击检测与取证能力不足。
+    default_level: P3
+    sort_index: 130
+    subtypes:
+      AUDIT_LOG_MISSING: 审计日志缺失
+      SECURITY_ALERT_MISSING: 安全告警缺失
+      TRACEABILITY_INSUFFICIENT: 可追溯性不足
+  FRONTEND_CLIENT_SECURITY:
+    label_zh: 前端与客户端安全
+    description_zh: H5、Web 前端、本地存储、客户端安全边界和前后端信任问题。
+    default_level: P2
+    sort_index: 140
+    subtypes:
+      SENSITIVE_DATA_IN_CLIENT_STORAGE: 客户端存储敏感数据
+      FRONTEND_AUTH_TRUST: 过度信任前端鉴权
+      XSS: 跨站脚本
+      INSECURE_CLIENT_CONFIG: 不安全客户端配置
+  MOBILE_CLIENT_SECURITY:
+    label_zh: 移动端安全
+    description_zh: Android/iOS/Flutter 客户端、逆向、证书校验、敏感信息和本地存储风险。
+    default_level: P2
+    sort_index: 150
+    subtypes:
+      SSL_PINNING_MISSING: 证书绑定缺失
+      MOBILE_SECRET_EXPOSURE: 移动端密钥暴露
+      INSECURE_LOCAL_STORAGE: 不安全本地存储
+      ANTI_TAMPER_MISSING: 防篡改能力缺失
+  BUILD_ENGINEERING_GOVERNANCE:
+    label_zh: 构建与工程治理
+    description_zh: 构建不可复现、生成文件缺失、工具链版本不匹配、文档过期、审计工具无法完整执行等问题。
+    default_level: P3
+    sort_index: 160
+    subtypes:
+      BUILD_NOT_REPRODUCIBLE: 构建不可复现
+      GENERATED_CODE_MISSING: 生成代码缺失
+      TOOLCHAIN_VERSION_MISMATCH: 工具链版本不匹配
+      PRIVATE_DEPENDENCY_UNRESOLVED: 私有依赖无法解析
+      DOC_STALE_OR_INACCURATE: 文档过期或不准确
+      SECURITY_TOOL_BLOCKED: 安全工具执行受阻
+      AUDIT_ASSISTED_CHANGE_REQUIRED: 需要审计辅助变更
+  CODE_QUALITY_TECH_DEBT:
+    label_zh: 代码质量与技术债
+    description_zh: 影响长期安全维护、可读性、可测试性、可维护性的代码问题。
+    default_level: P3
+    sort_index: 170
+    subtypes:
+      DEAD_CODE: 死代码
+      DUPLICATED_LOGIC: 重复逻辑
+      COMPLEXITY_HIGH: 复杂度过高
+      ERROR_HANDLING_WEAK: 异常处理薄弱
+  ARCHITECTURE_RESILIENCE:
+    label_zh: 架构与韧性
+    description_zh: 架构分层、容错、隔离、限流、降级、数据一致性和灾备相关风险。
+    default_level: P2
+    sort_index: 180
+    subtypes:
+      ISOLATION_WEAK: 隔离性不足
+      RATE_LIMIT_ARCH_MISSING: 架构层限流缺失
+      RESILIENCE_WEAK: 韧性不足
+      DATA_CONSISTENCY_RISK: 数据一致性风险

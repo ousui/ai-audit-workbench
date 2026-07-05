@@ -2,6 +2,8 @@ SHELL := /usr/bin/env bash
 
 PYTHON ?= python3
 ENV_CHECK_RESULT ?= local/registry/hosts/current/ENV_CHECK_RESULT.local.json
+TOOL_ADAPTER_RESULT ?= local/registry/hosts/current/TOOL_ADAPTER_STATUS.json
+TOOL_CACHE_RESULT ?= local/registry/tools/TOOL_CACHE_STATUS.json
 SMOKE_RESULT_DIR ?= var/tmp/smoke
 TOOL_MATRIX ?= spec/env/TOOL_MATRIX.yaml
 TOOL_MATRIX_EXTENSIONS ?= spec/env/TOOL_MATRIX_EXTENSIONS.yaml
@@ -22,6 +24,8 @@ STACK_ENV_RESULT ?=
 TOOL_TIMEOUT ?= 900
 DRY_RUN ?= false
 ASSISTED_CHANGE ?= none
+TOOL_CACHE_TOOL ?= all
+ALLOW_NETWORK ?= false
 
 .PHONY: help
 help:
@@ -31,6 +35,8 @@ help:
 	@echo "  make install-deps"
 	@echo "  make check-deps"
 	@echo "  make env-summary"
+	@echo "  make tool-adapter-check"
+	@echo "  make tool-cache-check"
 	@echo "  make audit-static PROJECT_PATH=benchmarks/fixtures/static-demo PROJECT_CODE=DEMO DRY_RUN=true"
 	@echo "  make audit-static PROJECT_PATH=... PROJECT_CODE=... ASSISTED_CHANGE=swag_init"
 	@echo "  make benchmark"
@@ -46,6 +52,8 @@ help:
 	@echo "  make run-init PROJECT_PATH=... PROJECT_CODE=..."
 	@echo "  make audit-map RUN_ROOT=..."
 	@echo "  make stack-env-check RUN_ROOT=..."
+	@echo "  make tool-adapter-check RUN_ROOT=..."
+	@echo "  make tool-cache-check RUN_ROOT=..."
 	@echo "  make tool-plan-stack RUN_ROOT=..."
 	@echo "  make preflight RUN_ROOT=..."
 	@echo "  make assisted-change RUN_ROOT=... ASSISTED_CHANGE=swag_init"
@@ -62,6 +70,10 @@ help:
 	@echo "  make delivery RUN_ROOT=..."
 	@echo "  make validate-run RUN_ROOT=..."
 	@echo "  make debug-trace RUN_ROOT=... DEBUG_LEVEL=basic"
+	@echo ""
+	@echo "Cache update:"
+	@echo "  make tool-cache-update TOOL_CACHE_TOOL=trivy ALLOW_NETWORK=true"
+	@echo "  make tool-cache-update TOOL_CACHE_TOOL=dependency-check ALLOW_NETWORK=true"
 	@echo ""
 	@echo "Legacy milestones:"
 	@echo "  make fast-static PROJECT_PATH=... PROJECT_CODE=..."
@@ -82,6 +94,30 @@ env-check:
 .PHONY: env-summary
 env-summary:
 	$(PYTHON) scripts/00_env_check.py --matrix $(TOOL_MATRIX) --output $(ENV_CHECK_RESULT) --print-summary
+
+.PHONY: tool-adapter-check
+tool-adapter-check:
+	@if [ -n "$(RUN_ROOT)" ]; then \
+		$(PYTHON) scripts/36_check_tool_adapters.py --run-root "$(RUN_ROOT)" --output "$(TOOL_ADAPTER_RESULT)" --print-summary; \
+	else \
+		$(PYTHON) scripts/36_check_tool_adapters.py --output "$(TOOL_ADAPTER_RESULT)" --print-summary; \
+	fi
+
+.PHONY: tool-cache-check
+tool-cache-check:
+	@if [ -n "$(RUN_ROOT)" ]; then \
+		$(PYTHON) scripts/37_check_tool_cache.py --run-root "$(RUN_ROOT)" --output "$(TOOL_CACHE_RESULT)" --print-summary; \
+	else \
+		$(PYTHON) scripts/37_check_tool_cache.py --output "$(TOOL_CACHE_RESULT)" --print-summary; \
+	fi
+
+.PHONY: tool-cache-update
+tool-cache-update:
+	@if [ "$(ALLOW_NETWORK)" = "true" ]; then \
+		$(PYTHON) scripts/38_update_tool_cache.py --tool "$(TOOL_CACHE_TOOL)" --allow-network --timeout "$(TOOL_TIMEOUT)" --print-summary; \
+	else \
+		$(PYTHON) scripts/38_update_tool_cache.py --tool "$(TOOL_CACHE_TOOL)" --timeout "$(TOOL_TIMEOUT)" --print-summary; \
+	fi
 
 .PHONY: smoke
 smoke:
@@ -277,7 +313,7 @@ merge-external-candidates:
 	$(PYTHON) scripts/35_merge_external_candidates.py --run-root "$(RUN_ROOT)" --print-summary
 
 .PHONY: m14
-m14: py-compile stack-env-check tool-plan-stack preflight tool-execution-plan ext-tool-run ext-tool-candidates merge-external-candidates
+m14: py-compile stack-env-check tool-adapter-check tool-cache-check tool-plan-stack preflight tool-execution-plan ext-tool-run ext-tool-candidates merge-external-candidates
 	@echo "M14 validation completed."
 
 .PHONY: audit-static
@@ -309,7 +345,7 @@ clean-env:
 
 .PHONY: py-compile
 py-compile:
-	$(PYTHON) -m py_compile scripts/00_env_check.py scripts/05_check_deps.py scripts/10_run_init.py scripts/20_build_audit_map.py scripts/25_run_preflight.py scripts/26_run_assisted_change.py scripts/27_reset_assisted_change.py scripts/30_build_tool_plan.py scripts/31_stack_env_check.py scripts/32_build_tool_execution_plan.py scripts/33_run_tool_execution_plan.py scripts/34_import_tool_candidates.py scripts/35_merge_external_candidates.py scripts/40_build_evidence_pack.py scripts/50_run_static_tools.py scripts/60_build_candidates.py scripts/70_prepare_ai_triage.py scripts/72_build_context_pack.py scripts/74_prepare_deep_explore.py scripts/80_merge_results.py scripts/90_render_delivery.py scripts/95_validate_run.py scripts/100_fast_static.py scripts/110_collect_debug.py scripts/120_run_benchmark.py scripts/130_audit_static.py scripts/190_verify_layout.py scripts/99_smoke_check.py
+	$(PYTHON) -m py_compile scripts/00_env_check.py scripts/05_check_deps.py scripts/10_run_init.py scripts/20_build_audit_map.py scripts/25_run_preflight.py scripts/26_run_assisted_change.py scripts/27_reset_assisted_change.py scripts/30_build_tool_plan.py scripts/31_stack_env_check.py scripts/32_build_tool_execution_plan.py scripts/33_run_tool_execution_plan.py scripts/34_import_tool_candidates.py scripts/35_merge_external_candidates.py scripts/36_check_tool_adapters.py scripts/37_check_tool_cache.py scripts/38_update_tool_cache.py scripts/40_build_evidence_pack.py scripts/50_run_static_tools.py scripts/60_build_candidates.py scripts/70_prepare_ai_triage.py scripts/72_build_context_pack.py scripts/74_prepare_deep_explore.py scripts/80_merge_results.py scripts/90_render_delivery.py scripts/95_validate_run.py scripts/100_fast_static.py scripts/110_collect_debug.py scripts/120_run_benchmark.py scripts/130_audit_static.py scripts/190_verify_layout.py scripts/99_smoke_check.py
 
 .PHONY: status
 status:

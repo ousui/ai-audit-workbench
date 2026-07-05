@@ -4,27 +4,51 @@
 *.local.json
 
 # Env check local results
+local/registry/hosts/**/ENV_CHECK_RESULT*.json
 env/*.local.json
 env/ENV_CHECK_RESULT.json
 env/ENV_CHECK_RESULT.*.json
 !env/ENV_CHECK_RESULT.example.json
 
-# Audited source projects
+# Local personal state
+local/*
+!local/README.md
+!local/conf/
+local/conf/*
+!local/conf/README.md
+!local/projects/
+local/projects/*
+!local/projects/README.md
+!local/deliveries/
+local/deliveries/*
+!local/deliveries/README.md
+!local/registry/
+local/registry/*
+!local/registry/README.md
+
+# Runtime outputs
+var/*
+!var/README.md
+!var/runs/
+var/runs/*
+!var/runs/README.md
+!var/tmp/
+var/tmp/*
+!var/tmp/README.md
+!var/cache/
+var/cache/*
+!var/cache/README.md
+!var/logs/
+var/logs/*
+!var/logs/README.md
+
+# Legacy audited source projects and outputs (compatibility during migration)
 projects/*
 !projects/README.md
-
-# Audit run outputs
 runs/*
 !runs/README.md
-
-# Delivery outputs
 deliveries/*
 !deliveries/README.md
-
-# Local personal state and project index
-local/
-
-# Runtime temp and cache
 tmp/
 .cache/
 

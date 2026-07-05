@@ -24,9 +24,43 @@ DRY_RUN ?= false
 
 .PHONY: help
 help:
-	@echo "AI Audit Workbench commands"
+	@echo "AI Audit Workbench"
+	@echo ""
+	@echo "Common:"
+	@echo "  make install-deps"
+	@echo "  make check-deps"
+	@echo "  make env-summary"
 	@echo "  make audit-static PROJECT_PATH=benchmarks/fixtures/static-demo PROJECT_CODE=DEMO DRY_RUN=true"
-	@echo "  make py-compile smoke benchmark layout-verify"
+	@echo "  make benchmark"
+	@echo ""
+	@echo "Verify:"
+	@echo "  make py-compile"
+	@echo "  make smoke"
+	@echo "  make layout-verify"
+	@echo "  make verify"
+	@echo "  make verify-full"
+	@echo ""
+	@echo "Debug steps:"
+	@echo "  make run-init PROJECT_PATH=... PROJECT_CODE=..."
+	@echo "  make audit-map RUN_ROOT=..."
+	@echo "  make stack-env-check RUN_ROOT=..."
+	@echo "  make tool-plan-stack RUN_ROOT=..."
+	@echo "  make tool-execution-plan RUN_ROOT=..."
+	@echo "  make ext-tool-run RUN_ROOT=... DRY_RUN=true"
+	@echo "  make ext-tool-candidates RUN_ROOT=..."
+	@echo "  make evidence-pack RUN_ROOT=..."
+	@echo "  make tool-run RUN_ROOT=..."
+	@echo "  make candidates RUN_ROOT=..."
+	@echo "  make merge-external-candidates RUN_ROOT=..."
+	@echo "  make ai-triage RUN_ROOT=..."
+	@echo "  make merge RUN_ROOT=..."
+	@echo "  make delivery RUN_ROOT=..."
+	@echo "  make validate-run RUN_ROOT=..."
+	@echo "  make debug-trace RUN_ROOT=... DEBUG_LEVEL=basic"
+	@echo ""
+	@echo "Legacy milestones:"
+	@echo "  make fast-static PROJECT_PATH=... PROJECT_CODE=..."
+	@echo "  make m0 ... m15"
 
 .PHONY: install-deps
 install-deps:
@@ -47,6 +81,21 @@ env-summary:
 .PHONY: smoke
 smoke:
 	$(PYTHON) scripts/99_smoke_check.py
+
+.PHONY: layout-verify
+layout-verify:
+	$(PYTHON) scripts/190_verify_layout.py --print-summary
+
+.PHONY: verify
+verify: py-compile layout-verify smoke benchmark
+	@echo ""
+	@echo "Workbench verification completed."
+
+.PHONY: verify-full
+verify-full: verify
+	$(MAKE) audit-static PROJECT_PATH=benchmarks/fixtures/static-demo PROJECT_CODE=VERIFY_STATIC_DEMO PROJECT_NAME="Verify Static Demo" NETWORK_AUTHORIZATION=once DRY_RUN=true TOOL_TIMEOUT=30
+	@echo ""
+	@echo "Full workbench verification completed."
 
 .PHONY: m0
 m0: env-summary smoke
@@ -226,12 +275,9 @@ m15: py-compile audit-static
 
 .PHONY: fast-static
 fast-static: check-deps
+	@echo "[DEPRECATED] fast-static is a legacy MVP flow. Prefer: make audit-static ..."
 	@test -n "$(PROJECT_PATH)" || (echo "PROJECT_PATH is required"; exit 2)
 	$(PYTHON) scripts/100_fast_static.py --project-path "$(PROJECT_PATH)" --project-code "$(PROJECT_CODE)" --project-name "$(PROJECT_NAME)" --round "$(ROUND)" --debug-level "$(DEBUG_LEVEL)" --workspace-mode "$(WORKSPACE_MODE)" --output-root "$(OUTPUT_ROOT)" --network-authorization "$(NETWORK_AUTHORIZATION)"
-
-.PHONY: layout-verify
-layout-verify:
-	$(PYTHON) scripts/190_verify_layout.py --print-summary
 
 .PHONY: clean-smoke
 clean-smoke:

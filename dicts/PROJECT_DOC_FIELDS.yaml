@@ -1,0 +1,173 @@
+schema_version: project-doc-fields-0.1.0
+status: draft
+
+source_priority:
+  - human_override
+  - current_code_manifest
+  - current_tool_evidence
+  - ai_inference_from_current_code
+  - ai_extract_from_current_docs
+  - local_project_index
+  - stale_or_unknown_docs
+
+field_record_shape:
+  required:
+    - field_id
+    - label_zh
+    - value
+    - source_type
+    - confidence
+  optional:
+    - source_file
+    - evidence_excerpt
+    - verified_by_human
+    - last_verified_commit
+    - last_seen_at
+    - notes
+
+confidence_values:
+  high: 高置信
+  medium: 中置信
+  low: 低置信
+  unknown: 未知
+
+source_types:
+  human_override: 人工指定或人工修正
+  current_code_manifest: 当前代码清单或 manifest 事实
+  current_tool_evidence: 当前工具执行证据
+  ai_inference_from_current_code: AI 基于当前代码推理
+  ai_extract_from_current_docs: AI 从当前项目文档提取
+  local_project_index: 本地项目索引历史记录
+  stale_or_unknown_docs: 可能过期或来源不明确的文档
+
+fields:
+  project_code:
+    label_zh: 项目代码
+    description_zh: 公司或团队内部使用的项目编码。
+    stability: stable
+    preferred_sources: [human_override, local_project_index, ai_extract_from_current_docs]
+  project_name_cn:
+    label_zh: 项目中文名
+    description_zh: 用于中文报告和汇报材料的项目名称。
+    stability: stable
+    preferred_sources: [human_override, local_project_index, ai_extract_from_current_docs]
+  project_name_en:
+    label_zh: 项目英文名
+    description_zh: 英文项目名称或仓库名。
+    stability: stable
+    preferred_sources: [human_override, current_code_manifest, local_project_index, ai_extract_from_current_docs]
+  business_domain:
+    label_zh: 业务域
+    description_zh: 项目所属业务方向，例如交易、支付、用户、内容、运维、管理后台等。
+    stability: semi_stable
+    preferred_sources: [human_override, local_project_index, ai_extract_from_current_docs, ai_inference_from_current_code]
+  project_owner:
+    label_zh: 项目负责人
+    description_zh: 项目主要负责人或业务/研发 Owner。
+    stability: semi_stable
+    preferred_sources: [human_override, local_project_index, ai_extract_from_current_docs]
+  dev_team:
+    label_zh: 开发团队
+    description_zh: 负责开发或维护的团队。
+    stability: semi_stable
+    preferred_sources: [human_override, local_project_index, ai_extract_from_current_docs]
+  ops_team:
+    label_zh: 运维团队
+    description_zh: 负责部署、发布、监控或基础设施的团队。
+    stability: semi_stable
+    preferred_sources: [human_override, local_project_index, ai_extract_from_current_docs]
+  security_contact:
+    label_zh: 安全对接人
+    description_zh: 安全、合规或审计对接人。
+    stability: semi_stable
+    preferred_sources: [human_override, local_project_index, ai_extract_from_current_docs]
+  repo_url:
+    label_zh: 仓库地址
+    description_zh: Git 远程仓库地址，用于项目唯一索引。
+    stability: stable
+    preferred_sources: [current_code_manifest, human_override]
+  main_language:
+    label_zh: 主语言
+    description_zh: 当前代码事实识别出的主开发语言。
+    stability: volatile
+    preferred_sources: [current_code_manifest, current_tool_evidence]
+  frameworks:
+    label_zh: 框架与版本
+    description_zh: 当前代码和依赖清单识别出的框架、SDK 与关键版本。
+    stability: volatile
+    preferred_sources: [current_code_manifest, current_tool_evidence]
+  build_systems:
+    label_zh: 构建系统
+    description_zh: Maven、Gradle、Go module、npm、pnpm、yarn、composer 等工程制式。
+    stability: volatile
+    preferred_sources: [current_code_manifest, current_tool_evidence]
+  package_managers:
+    label_zh: 包管理器
+    description_zh: 项目当前使用的依赖管理工具。
+    stability: volatile
+    preferred_sources: [current_code_manifest, current_tool_evidence]
+  build_commands:
+    label_zh: 构建命令
+    description_zh: 文档或脚本中给出的构建命令。
+    stability: semi_stable
+    preferred_sources: [human_override, ai_extract_from_current_docs, current_code_manifest]
+  run_commands:
+    label_zh: 启动命令
+    description_zh: 文档或脚本中给出的本地启动命令。
+    stability: semi_stable
+    preferred_sources: [human_override, ai_extract_from_current_docs, current_code_manifest]
+  test_commands:
+    label_zh: 测试命令
+    description_zh: 文档或脚本中给出的测试命令。
+    stability: semi_stable
+    preferred_sources: [human_override, ai_extract_from_current_docs, current_code_manifest]
+  deployment_envs:
+    label_zh: 部署环境
+    description_zh: 开发、测试、预发、生产等部署环境描述。
+    stability: semi_stable
+    preferred_sources: [human_override, local_project_index, ai_extract_from_current_docs]
+  api_docs:
+    label_zh: API 文档
+    description_zh: 接口文档、Swagger/OpenAPI 文档或相关入口。
+    stability: semi_stable
+    preferred_sources: [current_code_manifest, ai_extract_from_current_docs]
+  ops_docs:
+    label_zh: 运维文档
+    description_zh: 部署、发布、回滚、监控、告警、故障处理相关文档。
+    stability: semi_stable
+    preferred_sources: [ai_extract_from_current_docs, local_project_index]
+  auth_model:
+    label_zh: 认证鉴权模型
+    description_zh: 登录、Token、Session、RBAC、OAuth、JWT、网关鉴权等安全模型摘要。
+    stability: semi_stable
+    preferred_sources: [current_code_manifest, ai_inference_from_current_code, ai_extract_from_current_docs]
+  data_assets:
+    label_zh: 数据资产
+    description_zh: 项目涉及的敏感数据、业务数据、资金数据、用户数据或日志数据。
+    stability: semi_stable
+    preferred_sources: [human_override, ai_inference_from_current_code, ai_extract_from_current_docs]
+  upstream_dependencies:
+    label_zh: 上游依赖
+    description_zh: 项目依赖的上游系统、服务、数据源、消息主题或 API。
+    stability: semi_stable
+    preferred_sources: [human_override, ai_extract_from_current_docs, ai_inference_from_current_code]
+  downstream_dependencies:
+    label_zh: 下游依赖
+    description_zh: 依赖本项目的下游系统、消费者、调用方或业务线。
+    stability: semi_stable
+    preferred_sources: [human_override, ai_extract_from_current_docs]
+  external_services:
+    label_zh: 外部服务
+    description_zh: OSS、短信、支付、推送、CDN、三方 API、云服务等外部依赖。
+    stability: semi_stable
+    preferred_sources: [current_code_manifest, ai_inference_from_current_code, ai_extract_from_current_docs]
+  known_limitations:
+    label_zh: 已知限制
+    description_zh: 文档或代码中提及的已知限制、兼容性、运行前提。
+    stability: semi_stable
+    preferred_sources: [ai_extract_from_current_docs, human_override]
+  known_risks:
+    label_zh: 已知风险
+    description_zh: 文档、TODO、FIXME、README 或历史索引中提及的风险点。
+    stability: semi_stable
+    preferred_sources: [ai_extract_from_current_docs, ai_inference_from_current_code, local_project_index]

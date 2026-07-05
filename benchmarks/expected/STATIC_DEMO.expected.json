@@ -14,6 +14,7 @@
     "required_output_files": [
       "audit-map/AUDIT_MAP.json",
       "audit-map/PROJECT_FACTS.json",
+      "audit-map/PROJECT_DOC_PROFILE.json",
       "evidence/TOOL_PLAN.json",
       "evidence/PREFLIGHT_RESULT.json",
       "evidence/tool-execution/TOOL_EXECUTION_PLAN.json",

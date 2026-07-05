@@ -11,36 +11,24 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import yaml  # type: ignore
+
 
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_ROOT = ROOT / "local" / "registry" / "projects"
+HISTORY_LIMIT = 20
 EXCLUDE_DIRS = {".git", ".venv", "venv", "node_modules", "vendor", "target", "dist", "build", "coverage", "var", "local"}
-DOC_NAMES = {
-    "README", "README.md", "README.txt", "CHANGELOG", "CHANGELOG.md", "CONTRIBUTING.md",
-    "Makefile", "Taskfile.yml", "Taskfile.yaml", "Dockerfile", "docker-compose.yml", "docker-compose.yaml",
-}
+DOC_NAMES = {"README", "README.md", "README.txt", "CHANGELOG", "CHANGELOG.md", "CONTRIBUTING.md", "Makefile", "Taskfile.yml", "Taskfile.yaml", "Dockerfile", "docker-compose.yml", "docker-compose.yaml"}
 DOC_EXTS = {".md", ".txt", ".rst", ".adoc", ".yml", ".yaml"}
 COMMAND_RE = re.compile(r"\b((?:make|go|npm|pnpm|yarn|mvn|gradle|./gradlew|docker|docker-compose|swag)\s+[^\n`;&|]+)")
 URL_RE = re.compile(r"https?://[^\s)>'\"]+")
 
 FIELD_LABELS = {
-    "project_code": "项目代码",
-    "project_name_cn": "项目中文名",
-    "project_name_en": "项目英文名",
-    "business_domain": "业务域",
-    "repo_url": "仓库地址",
-    "main_language": "主语言",
-    "frameworks": "框架与版本",
-    "build_systems": "构建系统",
-    "package_managers": "包管理器",
-    "build_commands": "构建命令",
-    "run_commands": "启动命令",
-    "test_commands": "测试命令",
-    "api_docs": "API 文档",
-    "ops_docs": "运维文档",
-    "external_services": "外部服务",
-    "known_limitations": "已知限制",
-    "known_risks": "已知风险",
+    "project_code": "项目代码", "project_name_cn": "项目中文名", "project_name_en": "项目英文名",
+    "business_domain": "业务域", "repo_url": "仓库地址", "main_language": "主语言", "frameworks": "框架与版本",
+    "build_systems": "构建系统", "package_managers": "包管理器", "build_commands": "构建命令",
+    "run_commands": "启动命令", "test_commands": "测试命令", "api_docs": "API 文档", "ops_docs": "运维文档",
+    "external_services": "外部服务", "known_limitations": "已知限制", "known_risks": "已知风险",
 }
 
 
@@ -55,6 +43,18 @@ def load_json(path: Path) -> dict[str, Any]:
 def write_json(path: Path, data: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def load_yaml(path: Path) -> dict[str, Any]:
+    if not path.is_file():
+        return {}
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    return data if isinstance(data, dict) else {}
+
+
+def write_yaml(path: Path, data: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False, default_flow_style=False) + "\n", encoding="utf-8")
 
 
 def rel(path: Path, base: Path) -> str:
@@ -115,16 +115,7 @@ def git_registry_identity(project_root: Path, profile: dict[str, Any]) -> dict[s
     if repo_rel == "":
         repo_rel = "."
     hash_input = f"git:{remote}#{repo_rel}"
-    project_id = f"git-{sha256_short(hash_input)}"
-    return {
-        "project_id": project_id,
-        "strategy": "git-remote-subpath-hash",
-        "requested_strategy": "auto",
-        "hash_algorithm": "sha256",
-        "hash_length": 16,
-        "hash_input": hash_input,
-        "vcs": {"type": "git", "remote_url_normalized": remote, "repo_relative_path": repo_rel},
-    }
+    return {"project_id": f"git-{sha256_short(hash_input)}", "strategy": "git-remote-subpath-hash", "requested_strategy": "auto", "hash_algorithm": "sha256", "hash_length": 16, "hash_input": hash_input, "vcs": {"type": "git", "remote_url_normalized": remote, "repo_relative_path": repo_rel}}
 
 
 def svn_registry_identity(project_root: Path) -> dict[str, Any] | None:
@@ -139,29 +130,13 @@ def svn_registry_identity(project_root: Path) -> dict[str, Any] | None:
     if url_norm.startswith(root_norm):
         subpath = url_norm[len(root_norm):].strip("/") or "."
     hash_input = f"svn:{root_norm}#{subpath}"
-    return {
-        "project_id": f"svn-{sha256_short(hash_input)}",
-        "strategy": "svn-url-subpath-hash",
-        "requested_strategy": "auto",
-        "hash_algorithm": "sha256",
-        "hash_length": 16,
-        "hash_input": hash_input,
-        "vcs": {"type": "svn", "remote_url_normalized": root_norm, "repo_relative_path": subpath},
-    }
+    return {"project_id": f"svn-{sha256_short(hash_input)}", "strategy": "svn-url-subpath-hash", "requested_strategy": "auto", "hash_algorithm": "sha256", "hash_length": 16, "hash_input": hash_input, "vcs": {"type": "svn", "remote_url_normalized": root_norm, "repo_relative_path": subpath}}
 
 
 def dir_registry_identity(project_root: Path) -> dict[str, Any]:
     path = str(project_root.resolve())
     hash_input = f"dir:{path}"
-    return {
-        "project_id": f"dir-{sha256_short(hash_input)}",
-        "strategy": "dir-hash",
-        "requested_strategy": "auto",
-        "hash_algorithm": "sha256",
-        "hash_length": 16,
-        "hash_input": hash_input,
-        "vcs": {"type": "none", "remote_url_normalized": None, "repo_relative_path": path},
-    }
+    return {"project_id": f"dir-{sha256_short(hash_input)}", "strategy": "dir-hash", "requested_strategy": "auto", "hash_algorithm": "sha256", "hash_length": 16, "hash_input": hash_input, "vcs": {"type": "none", "remote_url_normalized": None, "repo_relative_path": path}}
 
 
 def build_registry_identity(project_root: Path, profile: dict[str, Any], strategy: str, manual_id: str | None) -> dict[str, Any]:
@@ -169,16 +144,7 @@ def build_registry_identity(project_root: Path, profile: dict[str, Any], strateg
     if requested == "manual":
         if not manual_id:
             raise SystemExit("[FAIL] --registry-project-id is required when --registry-id-strategy=manual")
-        project_id = slugify(manual_id)
-        return {
-            "project_id": project_id,
-            "strategy": "manual",
-            "requested_strategy": requested,
-            "hash_algorithm": None,
-            "hash_length": None,
-            "hash_input": None,
-            "vcs": {"type": "manual", "remote_url_normalized": None, "repo_relative_path": None},
-        }
+        return {"project_id": slugify(manual_id), "strategy": "manual", "requested_strategy": requested, "hash_algorithm": None, "hash_length": None, "hash_input": None, "vcs": {"type": "manual", "remote_url_normalized": None, "repo_relative_path": None}}
     if requested in {"auto", "git-hash"}:
         identity = git_registry_identity(project_root, profile)
         if identity:
@@ -256,7 +222,7 @@ def uniq(values: list[str], limit: int = 30) -> list[str]:
     out: list[str] = []
     seen = set()
     for value in values:
-        value = re.sub(r"\s+", " ", value.strip().strip("`"))
+        value = re.sub(r"\s+", " ", str(value).strip().strip("`"))
         if not value or value in seen:
             continue
         out.append(value)
@@ -300,18 +266,14 @@ def infer_doc_fields(docs: list[dict[str, Any]], profile: dict[str, Any], facts:
     if lang_summary.get("has_node_frontend_code"):
         language.append("Node/Frontend")
     fields["main_language"] = make_field("main_language", language, "current_code_manifest", "high", notes=["from PROJECT_FACTS language_summary"])
-
     headings = [x.get("first_heading") for x in docs if x.get("first_heading")]
     if headings:
         fields["project_name_cn"] = make_field("project_name_cn", headings[0], "current_project_docs_extract", "low", docs[0].get("path"), headings[0], ["first heading from project document; may be stale"])
-
     all_text = "\n".join(x.get("full_text") or "" for x in docs if x.get("readable"))
-    commands = uniq(COMMAND_RE.findall(all_text), limit=80)
-    categorized = classify_commands(commands)
+    categorized = classify_commands(uniq(COMMAND_RE.findall(all_text), limit=80))
     for field_id, values in categorized.items():
         if values:
             fields[field_id] = make_field(field_id, values, "current_project_docs_extract", "medium", evidence="; ".join(values[:5]), notes=["deterministic command extraction from docs/workflow files"])
-
     urls = uniq(URL_RE.findall(all_text), limit=50)
     api_urls = [u for u in urls if any(k in u.lower() for k in ["swagger", "openapi", "api-doc", "docs", "doc.html"])]
     if api_urls:
@@ -319,11 +281,9 @@ def infer_doc_fields(docs: list[dict[str, Any]], profile: dict[str, Any], facts:
     external = [u for u in urls if not any(k in u.lower() for k in ["github.com", "swagger", "openapi"])]
     if external:
         fields["external_services"] = make_field("external_services", external[:20], "current_project_docs_extract", "low", evidence="; ".join(external[:5]), notes=["URLs extracted from docs; may include examples"])
-
     ops_paths = [x["path"] for x in docs if any(k in x["path"].lower() for k in ["deploy", "docker", "k8s", "kubernetes", "helm", "ops", "workflow", "ci"])]
     if ops_paths:
         fields["ops_docs"] = make_field("ops_docs", ops_paths, "current_project_docs_extract", "medium", evidence="; ".join(ops_paths[:10]))
-
     risk_lines = []
     for doc in docs:
         text = doc.get("full_text") or ""
@@ -346,25 +306,79 @@ def build_profile(run_root: Path, max_docs: int, max_file_size: int, registry_id
     docs = discover_docs(project_root, max_docs, max_file_size)
     fields = infer_doc_fields(docs, profile, facts)
     doc_sources = [{k: v for k, v in item.items() if k != "full_text"} for item in docs]
-    return {
-        "schema_version": "project-doc-profile-0.2.0",
-        "generated_at": now(),
-        "source_priority": ["human_current_run_confirmation", "current_code_manifest", "current_tool_evidence", "ai_inference_from_current_code", "current_project_docs_extract", "local_registry_history", "stale_or_unknown_docs"],
-        "run": {"run_id": run_meta.get("run_id"), "project_key": run_meta.get("project_key"), "audit_mode": run_meta.get("audit_mode")},
-        "project": {"project_code": profile.get("project_code"), "project_name": profile.get("project_name"), "project_path_relative_to_workbench": profile.get("project_path", {}).get("relative_to_workbench"), "git": profile.get("git", {})},
-        "registry_identity": registry_identity,
-        "summary": {"doc_sources_discovered": len(doc_sources), "fields_extracted": len(fields), "status": "completed"},
-        "doc_sources": doc_sources,
-        "fields": fields,
-        "notes": ["Project document profile is advisory and may be stale.", "Current code manifests and tool evidence take priority over documentation-derived fields.", "Human confirmation should be recorded separately when field accuracy matters."],
-    }
+    return {"schema_version": "project-doc-profile-0.3.0", "generated_at": now(), "source_priority": ["human_current_run_confirmation", "current_code_manifest", "current_tool_evidence", "ai_inference_from_current_code", "current_project_docs_extract", "local_registry_history", "stale_or_unknown_docs"], "run": {"run_id": run_meta.get("run_id"), "project_key": run_meta.get("project_key"), "project_code": run_meta.get("project_code"), "project_name": run_meta.get("project_name"), "audit_mode": run_meta.get("audit_mode"), "created_at": run_meta.get("created_at")}, "project": {"project_code": profile.get("project_code"), "project_name": profile.get("project_name"), "project_path_relative_to_workbench": profile.get("project_path", {}).get("relative_to_workbench"), "project_directory_name": project_root.name, "git": profile.get("git", {})}, "registry_identity": registry_identity, "summary": {"doc_sources_discovered": len(doc_sources), "fields_extracted": len(fields), "status": "completed"}, "doc_sources": doc_sources, "fields": fields, "notes": ["Project document profile is advisory and may be stale.", "Current code manifests and tool evidence take priority over documentation-derived fields.", "Human confirmation should be recorded in registry manual section when field accuracy matters."]}
 
 
-def build_project_index(doc_profile: dict[str, Any], facts: dict[str, Any]) -> dict[str, Any]:
+def field_value(fields: dict[str, Any], field_id: str, default: Any = None) -> Any:
+    item = fields.get(field_id) or {}
+    return item.get("value", default)
+
+
+def limit_list(value: Any, limit: int = 20) -> list[Any]:
+    if value is None:
+        return []
+    if not isinstance(value, list):
+        value = [value]
+    return value[:limit]
+
+
+def new_aliases(doc_profile: dict[str, Any]) -> dict[str, list[str]]:
     project = doc_profile.get("project", {})
-    fields = doc_profile.get("fields", {})
-    registry_identity = doc_profile.get("registry_identity", {})
-    return {"schema_version": "project-index-0.1.0", "updated_at": now(), "identity": registry_identity, "project_key": doc_profile.get("run", {}).get("project_key"), "project_code": project.get("project_code"), "project_name": project.get("project_name"), "git": project.get("git", {}), "latest_run": doc_profile.get("run"), "latest_build_systems": facts.get("build_systems", []), "latest_package_managers": facts.get("package_managers", []), "doc_profile_summary": doc_profile.get("summary", {}), "fields": fields, "refs": {"latest_project_doc_profile": "audit-map/PROJECT_DOC_PROFILE.json", "latest_project_facts": "audit-map/PROJECT_FACTS.json"}}
+    out = {"project_codes": [], "project_names": [], "directory_names": []}
+    if project.get("project_code"):
+        out["project_codes"].append(str(project["project_code"]))
+    if project.get("project_name"):
+        out["project_names"].append(str(project["project_name"]))
+    if project.get("project_directory_name"):
+        out["directory_names"].append(str(project["project_directory_name"]))
+    return out
+
+
+def merge_aliases(existing: dict[str, Any], fresh: dict[str, list[str]]) -> dict[str, list[str]]:
+    merged: dict[str, list[str]] = {}
+    for key in sorted(set(existing.keys()) | set(fresh.keys())):
+        old_values = existing.get(key) or []
+        if not isinstance(old_values, list):
+            old_values = [old_values]
+        merged[key] = uniq([str(x) for x in old_values] + [str(x) for x in fresh.get(key, []) if x], limit=50)
+    return merged
+
+
+def manual_template(existing_manual: Any) -> dict[str, Any]:
+    default = {"business_domain": None, "owners": [], "dev_team": None, "ops_team": None, "security_contact": None, "build_commands": [], "run_commands": [], "test_commands": [], "api_docs": [], "ops_docs": [], "notes": []}
+    if isinstance(existing_manual, dict):
+        for key, value in default.items():
+            existing_manual.setdefault(key, value)
+        return existing_manual
+    return default
+
+
+def generated_section(doc_profile: dict[str, Any], facts: dict[str, Any]) -> dict[str, Any]:
+    fields = doc_profile.get("fields") or {}
+    return {"updated_at": now(), "latest_run": doc_profile.get("run"), "latest_facts": {"build_systems": facts.get("build_systems", []), "package_managers": facts.get("package_managers", []), "main_language": limit_list(field_value(fields, "main_language"))}, "doc_profile": doc_profile.get("summary", {}), "doc_fields": {"build_commands": limit_list(field_value(fields, "build_commands")), "run_commands": limit_list(field_value(fields, "run_commands")), "test_commands": limit_list(field_value(fields, "test_commands")), "api_docs": limit_list(field_value(fields, "api_docs")), "ops_docs": limit_list(field_value(fields, "ops_docs")), "external_services": limit_list(field_value(fields, "external_services"), 10), "known_risks": limit_list(field_value(fields, "known_risks"), 10)}}
+
+
+def update_history(existing_history: dict[str, Any], doc_profile: dict[str, Any]) -> dict[str, Any]:
+    old_runs = existing_history.get("latest_runs") if isinstance(existing_history, dict) else []
+    if not isinstance(old_runs, list):
+        old_runs = []
+    project = doc_profile.get("project", {})
+    run = doc_profile.get("run", {})
+    entry = {"run_id": run.get("run_id"), "created_at": run.get("created_at"), "audit_mode": run.get("audit_mode"), "git_commit": (project.get("git") or {}).get("commit"), "git_branch": (project.get("git") or {}).get("branch")}
+    merged = [entry]
+    for item in old_runs:
+        if not isinstance(item, dict):
+            continue
+        if item.get("run_id") == entry.get("run_id") and item.get("git_commit") == entry.get("git_commit"):
+            continue
+        merged.append(item)
+        if len(merged) >= HISTORY_LIMIT:
+            break
+    return {"latest_runs": merged}
+
+
+def build_project_index(doc_profile: dict[str, Any], facts: dict[str, Any], existing: dict[str, Any]) -> dict[str, Any]:
+    return {"schema_version": "project-index-0.2.0", "identity": doc_profile.get("registry_identity", {}), "aliases": merge_aliases(existing.get("aliases") or {}, new_aliases(doc_profile)), "generated": generated_section(doc_profile, facts), "manual": manual_template(existing.get("manual")), "history": update_history(existing.get("history") or {}, doc_profile)}
 
 
 def render_profile_md(profile: dict[str, Any]) -> str:
@@ -381,12 +395,6 @@ def render_profile_md(profile: dict[str, Any]) -> str:
     for note in profile.get("notes", []):
         lines.append(f"- {note}")
     lines.append("")
-    return "\n".join(lines)
-
-
-def render_index_md(index: dict[str, Any]) -> str:
-    identity = index.get("identity", {})
-    lines = ["# PROJECT_INDEX", "", f"- Project ID: `{identity.get('project_id')}`", f"- Strategy: `{identity.get('strategy')}`", f"- Project code: `{index.get('project_code') or ''}`", f"- Project name: `{index.get('project_name') or ''}`", f"- Updated at: `{index.get('updated_at')}`", "", "## Latest facts", "", f"- Build systems: `{', '.join(index.get('latest_build_systems') or []) or '-'}`", f"- Package managers: `{', '.join(index.get('latest_package_managers') or []) or '-'}`", ""]
     return "\n".join(lines)
 
 
@@ -429,13 +437,13 @@ def main(argv: list[str]) -> int:
     if not registry_root.is_absolute():
         registry_root = (ROOT / registry_root).resolve()
     project_id = profile.get("registry_identity", {}).get("project_id") or "unknown"
-    index_dir = registry_root / str(project_id)
-    index = build_project_index(profile, facts)
-    write_json(index_dir / "PROJECT_INDEX.json", index)
-    (index_dir / "PROJECT_INDEX.md").write_text(render_index_md(index), encoding="utf-8")
+    index_path = registry_root / str(project_id) / "PROJECT_INDEX.yaml"
+    existing = load_yaml(index_path)
+    index = build_project_index(profile, facts, existing)
+    write_yaml(index_path, index)
 
     if args.print_summary:
-        print_summary(profile, index_dir / "PROJECT_INDEX.json")
+        print_summary(profile, index_path)
     return 0
 
 

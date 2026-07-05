@@ -11,6 +11,9 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SPEC_ENV = ROOT / "spec" / "env"
+SPEC_RULES = ROOT / "spec" / "rules"
+DEFAULT_OUTPUT_ROOT = "var/runs"
 
 
 def slugify(value: str, default: str = "project") -> str:
@@ -49,15 +52,12 @@ def write_flow_record(run_root: Path, record: dict) -> None:
     out.mkdir(parents=True, exist_ok=True)
     (out / "AUDIT_STATIC_FLOW.json").write_text(json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     lines = [
-        "# AUDIT_STATIC_FLOW",
-        "",
+        "# AUDIT_STATIC_FLOW", "",
         f"- Status: `{record['status']}`",
         f"- Run root: `{record['run_root']}`",
         f"- Network authorization: `{record['network_authorization']}`",
-        f"- Dry run external tools: `{record['dry_run_external_tools']}`",
-        "",
-        "## Steps",
-        "",
+        f"- Dry run external tools: `{record['dry_run_external_tools']}`", "",
+        "## Steps", "",
         "| Step | Status | Exit code |",
         "|---|---|---:|",
     ]
@@ -75,7 +75,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--debug-level", default="off", choices=["off", "basic", "trace", "replay"])
     parser.add_argument("--run-id", default="")
     parser.add_argument("--workspace-mode", default="workbench", choices=["workbench", "project"])
-    parser.add_argument("--output-root", default="runs")
+    parser.add_argument("--output-root", default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--network-authorization", default="deny", choices=["deny", "once", "always"])
     parser.add_argument("--tool-timeout", type=int, default=900)
     parser.add_argument("--dry-run-external-tools", action="store_true")
@@ -88,17 +88,21 @@ def main(argv: list[str]) -> int:
     output_root = resolve_output_root(project_path, args.output_root, args.workspace_mode)
     run_root = output_root / project_key / run_id
 
+    tool_matrix = str(SPEC_ENV / "TOOL_MATRIX.yaml")
+    tool_matrix_ext = str(SPEC_ENV / "TOOL_MATRIX_EXTENSIONS.yaml")
+    recipes = str(SPEC_RULES / "candidate-recipes.yaml")
+
     steps: list[tuple[str, list[str]]] = [
         ("check-deps", [sys.executable, "scripts/05_check_deps.py", "--strict", "--print-summary"]),
         ("run-init", [sys.executable, "scripts/10_run_init.py", "--project-path", str(project_path), "--project-code", args.project_code, "--project-name", args.project_name, "--audit-mode", "FAST_STATIC", "--round", args.round, "--debug-level", args.debug_level, "--run-id", run_id, "--workspace-mode", args.workspace_mode, "--output-root", args.output_root, "--network-authorization", args.network_authorization, "--print-summary"]),
         ("audit-map", [sys.executable, "scripts/20_build_audit_map.py", "--run-root", str(run_root), "--print-summary"]),
-        ("stack-env-check", [sys.executable, "scripts/31_stack_env_check.py", "--run-root", str(run_root), "--include-all-tools", "--print-summary"]),
-        ("tool-plan", [sys.executable, "scripts/30_build_tool_plan.py", "--run-root", str(run_root), "--env-result", str(run_root / "evidence" / "STACK_ENV_CHECK_RESULT.json"), "--print-summary"]),
+        ("stack-env-check", [sys.executable, "scripts/31_stack_env_check.py", "--run-root", str(run_root), "--include-all-tools", "--tool-matrix", tool_matrix, "--tool-matrix-extensions", tool_matrix_ext, "--print-summary"]),
+        ("tool-plan", [sys.executable, "scripts/30_build_tool_plan.py", "--run-root", str(run_root), "--env-result", str(run_root / "evidence" / "STACK_ENV_CHECK_RESULT.json"), "--tool-matrix", tool_matrix, "--tool-matrix-extensions", tool_matrix_ext, "--print-summary"]),
         ("tool-execution-plan", [sys.executable, "scripts/32_build_tool_execution_plan.py", "--run-root", str(run_root), "--print-summary"]),
         ("ext-tool-run", [sys.executable, "scripts/33_run_tool_execution_plan.py", "--run-root", str(run_root), "--timeout", str(args.tool_timeout), "--print-summary"] + (["--dry-run"] if args.dry_run_external_tools else [])),
         ("ext-tool-candidates", [sys.executable, "scripts/34_import_tool_candidates.py", "--run-root", str(run_root), "--print-summary"]),
         ("evidence-pack", [sys.executable, "scripts/40_build_evidence_pack.py", "--run-root", str(run_root), "--print-summary"]),
-        ("built-in-tool-run", [sys.executable, "scripts/50_run_static_tools.py", "--run-root", str(run_root), "--print-summary"]),
+        ("built-in-tool-run", [sys.executable, "scripts/50_run_static_tools.py", "--run-root", str(run_root), "--recipes", recipes, "--print-summary"]),
         ("candidate-pool", [sys.executable, "scripts/60_build_candidates.py", "--run-root", str(run_root), "--print-summary"]),
         ("merge-external-candidates", [sys.executable, "scripts/35_merge_external_candidates.py", "--run-root", str(run_root), "--print-summary"]),
         ("ai-triage", [sys.executable, "scripts/70_prepare_ai_triage.py", "--run-root", str(run_root), "--print-summary"] + ([] if args.no_stub else ["--write-stub"])),
@@ -111,7 +115,7 @@ def main(argv: list[str]) -> int:
         steps.append(("debug-trace", [sys.executable, "scripts/110_collect_debug.py", "--run-root", str(run_root), "--debug-level", args.debug_level, "--print-summary"]))
 
     flow_record = {
-        "schema_version": "audit-static-flow-0.1.0",
+        "schema_version": "audit-static-flow-0.2.0",
         "status": "running",
         "run_root": str(run_root),
         "project_path": str(project_path),

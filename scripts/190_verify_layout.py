@@ -41,6 +41,7 @@ COMPILE_SCRIPTS = [
     "scripts/05_check_deps.py",
     "scripts/10_run_init.py",
     "scripts/20_build_audit_map.py",
+    "scripts/25_run_preflight.py",
     "scripts/30_build_tool_plan.py",
     "scripts/31_stack_env_check.py",
     "scripts/32_build_tool_execution_plan.py",
@@ -130,7 +131,7 @@ def main(argv: list[str]) -> int:
         warnings.extend(smoke_warnings)
 
     result: dict[str, Any] = {
-        "schema_version": "layout-verify-result-0.1.0",
+        "schema_version": "layout-verify-result-0.2.0",
         "status": "passed" if not errors else "failed",
         "error_count": len(errors),
         "warning_count": len(warnings),

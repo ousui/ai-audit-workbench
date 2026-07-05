@@ -1,0 +1,103 @@
+schema_version: risk-taxonomy-0.2.0
+status: draft
+
+priority_order: [P0, P1, P2, P3]
+sort_order: [risk_level, risk_parent, risk_subtype, discovered_order]
+
+risk_levels:
+  P0: {label_zh: 紧急风险, label_en: Critical}
+  P1: {label_zh: 高危风险, label_en: High}
+  P2: {label_zh: 中危风险, label_en: Medium}
+  P3: {label_zh: 低危/治理风险, label_en: Low / Governance}
+
+risk_parents:
+  ACCESS_CONTROL:
+    label_zh: 访问控制
+    default_level: P1
+    sort_index: 10
+    subtypes: {IDOR: 水平越权, PRIVILEGE_ESCALATION: 权限提升, ADMIN_AUTHZ_BYPASS: 管理端授权绕过}
+  AUTHENTICATION_SESSION:
+    label_zh: 认证与会话
+    default_level: P1
+    sort_index: 20
+    subtypes: {AUTH_BYPASS: 认证绕过, TOKEN_EXPOSURE: Token 暴露, SESSION_FIXATION: 会话固定}
+  INPUT_INJECTION:
+    label_zh: 输入与注入
+    default_level: P1
+    sort_index: 30
+    subtypes: {SQL_INJECTION: SQL 注入, COMMAND_INJECTION: 命令注入, TEMPLATE_INJECTION: 模板注入, INSECURE_DESERIALIZATION: 不安全反序列化}
+  CRYPTOGRAPHY_SECRETS:
+    label_zh: 密码学与敏感凭据
+    default_level: P1
+    sort_index: 40
+    subtypes: {SECRET_HARDCODED: 硬编码密钥, SECRET_LEAKAGE: 敏感凭据泄露, WEAK_CRYPTO: 弱加密算法}
+  CONFIGURATION_EXPOSURE:
+    label_zh: 配置与暴露面
+    default_level: P2
+    sort_index: 50
+    subtypes: {DEBUG_ENABLED: 调试模式开启, CONFIG_FILE_EXPOSURE: 配置文件暴露, INSECURE_DEFAULT: 不安全默认配置}
+  VULNERABLE_DEPENDENCY:
+    label_zh: 依赖漏洞
+    default_level: P2
+    sort_index: 60
+    subtypes: {KNOWN_CVE: 已知 CVE, OUTDATED_COMPONENT: 过期组件, VULNERABLE_RUNTIME: 运行时漏洞}
+  SUPPLY_CHAIN_INTEGRITY:
+    label_zh: 供应链与完整性
+    default_level: P2
+    sort_index: 70
+    subtypes: {UNSAFE_BUILD_SCRIPT: 不安全构建脚本, UNPINNED_DEPENDENCY: 依赖未固定, UNTRUSTED_PACKAGE_SOURCE: 不可信包源}
+  DATA_PROTECTION_PRIVACY:
+    label_zh: 数据保护与隐私
+    default_level: P1
+    sort_index: 80
+    subtypes: {PII_EXPOSURE: 个人信息暴露, SENSITIVE_DATA_IN_LOG: 日志记录敏感数据, DATA_OVEREXPOSURE: 数据过度返回}
+  FILE_OPERATION:
+    label_zh: 文件操作
+    default_level: P1
+    sort_index: 90
+    subtypes: {ARBITRARY_FILE_UPLOAD: 任意文件上传, PATH_TRAVERSAL: 路径穿越, ARBITRARY_FILE_READ: 任意文件读取}
+  NETWORK_SSRF_REQUEST:
+    label_zh: 网络请求与 SSRF
+    default_level: P1
+    sort_index: 100
+    subtypes: {SSRF: 服务端请求伪造, UNRESTRICTED_CALLBACK: 回调地址未限制, WEBHOOK_VALIDATION_MISSING: Webhook 校验缺失}
+  BUSINESS_LOGIC:
+    label_zh: 业务逻辑
+    default_level: P1
+    sort_index: 110
+    subtypes: {PAYMENT_LOGIC_BYPASS: 支付逻辑绕过, ORDER_STATE_BYPASS: 订单状态绕过, WITHDRAWAL_RISK: 提现资金风险}
+  CONCURRENCY_IDEMPOTENCY:
+    label_zh: 并发与幂等
+    default_level: P2
+    sort_index: 120
+    subtypes: {RACE_CONDITION: 竞态条件, IDEMPOTENCY_MISSING: 幂等缺失, REPLAY_RISK: 重放风险}
+  LOGGING_MONITORING:
+    label_zh: 日志与监控
+    default_level: P3
+    sort_index: 130
+    subtypes: {AUDIT_LOG_MISSING: 审计日志缺失, SECURITY_ALERT_MISSING: 安全告警缺失, TRACEABILITY_INSUFFICIENT: 可追溯性不足}
+  FRONTEND_CLIENT_SECURITY:
+    label_zh: 前端与客户端安全
+    default_level: P2
+    sort_index: 140
+    subtypes: {SENSITIVE_DATA_IN_CLIENT_STORAGE: 客户端存储敏感数据, FRONTEND_AUTH_TRUST: 过度信任前端鉴权, XSS: 跨站脚本}
+  MOBILE_CLIENT_SECURITY:
+    label_zh: 移动端安全
+    default_level: P2
+    sort_index: 150
+    subtypes: {SSL_PINNING_MISSING: 证书绑定缺失, MOBILE_SECRET_EXPOSURE: 移动端密钥暴露, INSECURE_LOCAL_STORAGE: 不安全本地存储}
+  BUILD_ENGINEERING_GOVERNANCE:
+    label_zh: 构建与工程治理
+    default_level: P3
+    sort_index: 160
+    subtypes: {BUILD_NOT_REPRODUCIBLE: 构建不可复现, GENERATED_CODE_MISSING: 生成代码缺失, TOOLCHAIN_VERSION_MISMATCH: 工具链版本不匹配, SECURITY_TOOL_BLOCKED: 安全工具执行受阻, AUDIT_ASSISTED_CHANGE_REQUIRED: 需要审计辅助变更}
+  CODE_QUALITY_TECH_DEBT:
+    label_zh: 代码质量与技术债
+    default_level: P3
+    sort_index: 170
+    subtypes: {DEAD_CODE: 死代码, COMPLEXITY_HIGH: 复杂度过高, ERROR_HANDLING_WEAK: 异常处理薄弱}
+  ARCHITECTURE_RESILIENCE:
+    label_zh: 架构与韧性
+    default_level: P2
+    sort_index: 180
+    subtypes: {ISOLATION_WEAK: 隔离性不足, RESILIENCE_WEAK: 韧性不足, DATA_CONSISTENCY_RISK: 数据一致性风险}

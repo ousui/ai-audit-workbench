@@ -1,73 +1,68 @@
-# Local state and project index
+# 本地状态与项目索引
 
-AI Audit Workbench keeps source-controlled workflow logic separate from local personal state.
+AI Audit Workbench 将可提交的工作台规范与个人本地状态分离。
 
-## Directory policy
+## 目录策略
 
 ```text
-dicts/                 committed dictionaries and controlled vocabularies
-local/                 ignored local state, personal project index, manual overrides
-.cache/                ignored rebuildable runtime cache
-tmp/                   ignored temporary files
-runs/                  ignored audit run outputs
+spec/                 已提交：流程规范、规则、schema、prompt、工具矩阵
+conf/                 已提交：默认配置
+local/                不提交：个人本地状态、项目源码、项目索引、环境画像
+var/                  不提交：运行时产物、缓存、日志、临时文件
 ```
 
-## Recommended local layout
+## 推荐 local 结构
 
-`local/` is ignored by Git and should not be committed.
+`local/` 默认被 Git 忽略，不应提交。
 
 ```text
 local/
-  project-index/
-    <repo_fingerprint>/
-      PROJECT_INDEX.json
-      PROJECT_INDEX.md
-      HISTORY.jsonl
-  overrides/
-    <repo_fingerprint>/
-      AUDIT_MAP_OVERRIDE.json
-  tool-cache/
-    TOOL_CACHE_STATUS.json
+  conf/               个人配置覆盖
+  projects/           本地 clone 的被审项目源码
+  deliveries/         人工整理后长期保留的交付材料
+  registry/
+    projects/         项目长期索引
+    hosts/            本机环境画像
+    tools/            工具适配状态、缓存状态摘要
+    knowledge/        可复用经验、误报记忆、业务风险判断
 ```
 
-## Why not `.cache/` for project index?
+## 为什么不用 `.cache/` 存项目索引
 
-`.cache/` is for rebuildable runtime cache. The project index may contain human-confirmed project facts, team information, historical corrections, and audit workflow notes. It is local and private, but it is not always safely rebuildable. Therefore `local/project-index/` is preferred.
+`.cache/` / `var/cache/` 语义是可重建缓存。项目索引可能包含人工确认过的项目事实、团队信息、历史纠偏和审计经验，不一定能安全重建，因此放在 `local/registry/`。
 
-## Project identity
+## 项目身份
 
-The primary project identity should be derived from the remote Git repository URL when available.
+项目身份优先从 Git 远程仓库地址派生。
 
-Suggested fingerprint input order:
+建议 fingerprint 输入优先级：
 
-1. normalized `git remote get-url origin`
-2. repository root path when remote URL is unavailable
-3. explicit human-provided project code
+1. 标准化后的 `git remote get-url origin`
+2. 无远程地址时使用仓库根路径
+3. 人工提供的项目代码
 
-The fingerprint should be stable and should not expose the full repository URL in filenames.
+fingerprint 应稳定，且不在文件名中暴露完整仓库地址。
 
-## Fact priority
+## 事实优先级
 
-Audit-map facts must follow this priority:
+审计地图事实优先级：
 
-1. Human override for the current audit run
-2. Current latest code and manifests
-3. Current tool evidence and preflight output
-4. AI inference from current code
-5. AI extraction from current project documents
-6. Local project index
-7. Stale or unknown documents
+1. 本轮人工确认
+2. 当前最新版代码与 manifest
+3. 当前工具证据与 preflight 输出
+4. AI 基于当前代码推理
+5. AI 从当前项目文档提取
+6. 本地 registry 历史索引
+7. 过期或来源不明的文档
 
-The local project index is useful for stable project metadata, but it must not override current code facts such as framework versions, package managers, build systems, dependency manifests, or toolchain requirements.
+本地 registry 可以辅助稳定项，例如项目负责人、中文名、运维团队、上下游依赖；但不得覆盖当前代码事实，例如框架版本、依赖版本、包管理器、构建系统、工具链要求。
 
-## Share policy
+## 分享策略
 
-By default, `local/project-index/` is personal and not shared with the workbench repository.
-
-For team sharing, export a sanitized snapshot into a separate controlled location later, for example:
+默认不分享 `local/registry/`。如后续团队需要共享，应先导出脱敏快照到单独位置，例如：
 
 ```text
 exports/project-index-sanitized/
 ```
 
-Do not commit raw project index data, customer-specific information, secrets, private URLs, or audit outputs into the workbench repository.
+不得把原始项目索引、客户信息、私有仓库地址、人员信息、密钥或审计产物提交到工作台仓库。

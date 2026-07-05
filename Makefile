@@ -45,6 +45,7 @@ help:
 	@echo "  make audit-map RUN_ROOT=..."
 	@echo "  make stack-env-check RUN_ROOT=..."
 	@echo "  make tool-plan-stack RUN_ROOT=..."
+	@echo "  make preflight RUN_ROOT=..."
 	@echo "  make tool-execution-plan RUN_ROOT=..."
 	@echo "  make ext-tool-run RUN_ROOT=... DRY_RUN=true"
 	@echo "  make ext-tool-candidates RUN_ROOT=..."
@@ -137,6 +138,11 @@ tool-plan-stack: check-deps
 .PHONY: m3
 m3: py-compile tool-plan
 	@echo "M3 tool-plan validation completed."
+
+.PHONY: preflight
+preflight:
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required"; exit 2)
+	$(PYTHON) scripts/25_run_preflight.py --run-root "$(RUN_ROOT)" --print-summary
 
 .PHONY: evidence-pack
 evidence-pack:
@@ -257,7 +263,7 @@ merge-external-candidates:
 	$(PYTHON) scripts/35_merge_external_candidates.py --run-root "$(RUN_ROOT)" --print-summary
 
 .PHONY: m14
-m14: py-compile stack-env-check tool-plan-stack tool-execution-plan ext-tool-run ext-tool-candidates merge-external-candidates
+m14: py-compile stack-env-check tool-plan-stack preflight tool-execution-plan ext-tool-run ext-tool-candidates merge-external-candidates
 	@echo "M14 validation completed."
 
 .PHONY: audit-static
@@ -289,7 +295,7 @@ clean-env:
 
 .PHONY: py-compile
 py-compile:
-	$(PYTHON) -m py_compile scripts/00_env_check.py scripts/05_check_deps.py scripts/10_run_init.py scripts/20_build_audit_map.py scripts/30_build_tool_plan.py scripts/31_stack_env_check.py scripts/32_build_tool_execution_plan.py scripts/33_run_tool_execution_plan.py scripts/34_import_tool_candidates.py scripts/35_merge_external_candidates.py scripts/40_build_evidence_pack.py scripts/50_run_static_tools.py scripts/60_build_candidates.py scripts/70_prepare_ai_triage.py scripts/72_build_context_pack.py scripts/74_prepare_deep_explore.py scripts/80_merge_results.py scripts/90_render_delivery.py scripts/95_validate_run.py scripts/100_fast_static.py scripts/110_collect_debug.py scripts/120_run_benchmark.py scripts/130_audit_static.py scripts/190_verify_layout.py scripts/99_smoke_check.py
+	$(PYTHON) -m py_compile scripts/00_env_check.py scripts/05_check_deps.py scripts/10_run_init.py scripts/20_build_audit_map.py scripts/25_run_preflight.py scripts/30_build_tool_plan.py scripts/31_stack_env_check.py scripts/32_build_tool_execution_plan.py scripts/33_run_tool_execution_plan.py scripts/34_import_tool_candidates.py scripts/35_merge_external_candidates.py scripts/40_build_evidence_pack.py scripts/50_run_static_tools.py scripts/60_build_candidates.py scripts/70_prepare_ai_triage.py scripts/72_build_context_pack.py scripts/74_prepare_deep_explore.py scripts/80_merge_results.py scripts/90_render_delivery.py scripts/95_validate_run.py scripts/100_fast_static.py scripts/110_collect_debug.py scripts/120_run_benchmark.py scripts/130_audit_static.py scripts/190_verify_layout.py scripts/99_smoke_check.py
 
 .PHONY: status
 status:

@@ -105,6 +105,8 @@ def main(argv: list[str]) -> int:
         ("run-init", [sys.executable, "scripts/10_run_init.py", "--project-path", str(project_path), "--project-code", args.project_code, "--project-name", args.project_name, "--audit-mode", "FAST_STATIC", "--round", args.round, "--debug-level", args.debug_level, "--run-id", run_id, "--workspace-mode", args.workspace_mode, "--output-root", args.output_root, "--network-authorization", args.network_authorization, "--print-summary"]),
         ("audit-map", [sys.executable, "scripts/20_build_audit_map.py", "--run-root", str(run_root), "--print-summary"]),
         ("stack-env-check", [sys.executable, "scripts/31_stack_env_check.py", "--run-root", str(run_root), "--include-all-tools", "--tool-matrix", tool_matrix, "--tool-matrix-extensions", tool_matrix_ext, "--print-summary"]),
+        ("tool-adapter-check", [sys.executable, "scripts/36_check_tool_adapters.py", "--run-root", str(run_root), "--print-summary"]),
+        ("tool-cache-check", [sys.executable, "scripts/37_check_tool_cache.py", "--run-root", str(run_root), "--print-summary"]),
         ("tool-plan", [sys.executable, "scripts/30_build_tool_plan.py", "--run-root", str(run_root), "--env-result", str(run_root / "evidence" / "STACK_ENV_CHECK_RESULT.json"), "--tool-matrix", tool_matrix, "--tool-matrix-extensions", tool_matrix_ext, "--print-summary"]),
         ("preflight", [sys.executable, "scripts/25_run_preflight.py", "--run-root", str(run_root), "--print-summary"]),
     ]
@@ -134,7 +136,7 @@ def main(argv: list[str]) -> int:
         steps.append(("debug-trace", [sys.executable, "scripts/110_collect_debug.py", "--run-root", str(run_root), "--debug-level", args.debug_level, "--print-summary"]))
 
     flow_record = {
-        "schema_version": "audit-static-flow-0.4.0",
+        "schema_version": "audit-static-flow-0.5.0",
         "status": "running",
         "run_root": str(run_root),
         "project_path": str(project_path),

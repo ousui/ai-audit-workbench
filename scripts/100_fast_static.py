@@ -67,6 +67,7 @@ def main(argv: list[str]) -> int:
         [sys.executable, "scripts/05_check_deps.py", "--strict", "--print-summary"],
         [sys.executable, "scripts/10_run_init.py", "--project-path", args.project_path, "--project-code", args.project_code, "--project-name", args.project_name, "--audit-mode", "FAST_STATIC", "--round", args.round, "--debug-level", args.debug_level, "--run-id", run_id, "--workspace-mode", args.workspace_mode, "--output-root", args.output_root, "--network-authorization", args.network_authorization, "--print-summary"],
         [sys.executable, "scripts/20_build_audit_map.py", "--run-root", str(run_root), "--print-summary"],
+        [sys.executable, "scripts/28_build_project_doc_profile.py", "--run-root", str(run_root), "--print-summary"],
         [sys.executable, "scripts/31_stack_env_check.py", "--run-root", str(run_root), "--include-all-tools", "--tool-matrix", tool_matrix, "--tool-matrix-extensions", tool_matrix_ext, "--print-summary"],
         [sys.executable, "scripts/30_build_tool_plan.py", "--run-root", str(run_root), "--env-result", str(run_root / "evidence" / "STACK_ENV_CHECK_RESULT.json"), "--tool-matrix", tool_matrix, "--tool-matrix-extensions", tool_matrix_ext, "--print-summary"],
         [sys.executable, "scripts/25_run_preflight.py", "--run-root", str(run_root), "--print-summary"],

@@ -69,6 +69,7 @@ def main(argv: list[str]) -> int:
         [sys.executable, "scripts/20_build_audit_map.py", "--run-root", str(run_root), "--print-summary"],
         [sys.executable, "scripts/31_stack_env_check.py", "--run-root", str(run_root), "--include-all-tools", "--tool-matrix", tool_matrix, "--tool-matrix-extensions", tool_matrix_ext, "--print-summary"],
         [sys.executable, "scripts/30_build_tool_plan.py", "--run-root", str(run_root), "--env-result", str(run_root / "evidence" / "STACK_ENV_CHECK_RESULT.json"), "--tool-matrix", tool_matrix, "--tool-matrix-extensions", tool_matrix_ext, "--print-summary"],
+        [sys.executable, "scripts/25_run_preflight.py", "--run-root", str(run_root), "--print-summary"],
         [sys.executable, "scripts/32_build_tool_execution_plan.py", "--run-root", str(run_root), "--print-summary"],
         [sys.executable, "scripts/40_build_evidence_pack.py", "--run-root", str(run_root), "--print-summary"],
         [sys.executable, "scripts/50_run_static_tools.py", "--run-root", str(run_root), "--recipes", recipes, "--print-summary"],

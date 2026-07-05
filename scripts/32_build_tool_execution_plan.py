@@ -28,8 +28,25 @@ def rel(path: Path) -> str:
         return str(path)
 
 
-def command(tool_id: str, profile: str, output_dir: str) -> list[dict[str, Any]]:
+def adapter_for(adapter_status: dict[str, Any], tool_id: str) -> dict[str, Any] | None:
+    item = (adapter_status.get("tools") or {}).get(tool_id)
+    return item if isinstance(item, dict) else None
+
+
+def golangci_lint_command(out: str, adapter_status: dict[str, Any]) -> list[dict[str, Any]]:
+    adapter = adapter_for(adapter_status, "golangci-lint") or {}
+    variant = adapter.get("command_variant")
+    if variant == "output-json-path":
+        shell = f"golangci-lint run --output.json.path {out}/golangci-lint.json"
+    else:
+        shell = f"golangci-lint run --out-format json > {out}/golangci-lint.json"
+    return [{"command_id": "golangci-lint", "shell": shell, "output_files": [f"{out}/golangci-lint.json"], "network_required": False}]
+
+
+def command(tool_id: str, profile: str, output_dir: str, adapter_status: dict[str, Any]) -> list[dict[str, Any]]:
     out = output_dir
+    if (tool_id, profile) == ("golangci-lint", "offline"):
+        return golangci_lint_command(out, adapter_status)
     templates: dict[tuple[str, str], list[dict[str, Any]]] = {
         ("semgrep", "offline"): [
             {"command_id": "semgrep-offline-auto", "shell": f"semgrep --config auto --json -o {out}/semgrep.json .", "output_files": [f"{out}/semgrep.json"], "network_required": False},
@@ -49,9 +66,6 @@ def command(tool_id: str, profile: str, output_dir: str) -> list[dict[str, Any]]
         ],
         ("govulncheck", "online"): [
             {"command_id": "govulncheck", "shell": f"govulncheck -json ./... > {out}/govulncheck.json", "output_files": [f"{out}/govulncheck.json"], "network_required": True},
-        ],
-        ("golangci-lint", "offline"): [
-            {"command_id": "golangci-lint", "shell": f"golangci-lint run --out-format json > {out}/golangci-lint.json", "output_files": [f"{out}/golangci-lint.json"], "network_required": False},
         ],
         ("npm", "online"): [
             {"command_id": "npm-audit", "shell": f"npm audit --json > {out}/npm-audit.json", "output_files": [f"{out}/npm-audit.json"], "network_required": True},
@@ -98,7 +112,19 @@ def gate_from_facts(tool_id: str, facts: dict[str, Any]) -> dict[str, Any] | Non
     return None
 
 
-def execution_gate(tool_id: str, facts: dict[str, Any], preflight: dict[str, Any]) -> tuple[str, str, dict[str, Any] | None]:
+def adapter_gate(tool_id: str, adapter_status: dict[str, Any]) -> tuple[str, str, dict[str, Any] | None] | None:
+    adapter_sensitive = {"golangci-lint", "govulncheck", "semgrep", "gitleaks", "trivy", "dependency-check"}
+    if tool_id not in adapter_sensitive:
+        return None
+    adapter = adapter_for(adapter_status, tool_id)
+    if not adapter:
+        return None
+    if adapter.get("status") == "incompatible":
+        return "blocked_tool_adapter_incompatible", str(adapter.get("reason") or "tool adapter is incompatible"), adapter
+    return None
+
+
+def execution_gate(tool_id: str, facts: dict[str, Any], preflight: dict[str, Any], adapter_status: dict[str, Any]) -> tuple[str, str, dict[str, Any] | None]:
     fact_gate = gate_from_facts(tool_id, facts)
     if fact_gate is not None and not fact_gate.get("applicable"):
         return "not_applicable_by_manifest", str(fact_gate.get("reason") or "manifest gate not applicable"), fact_gate
@@ -112,17 +138,18 @@ def execution_gate(tool_id: str, facts: dict[str, Any], preflight: dict[str, Any
         check = preflight_check(preflight, "maven-manifest")
         if check and check.get("status") == "not_applicable_by_manifest":
             return "not_applicable_by_manifest", str(check.get("reason") or "pom.xml not found"), check
-
     if tool_id == "gradle":
         check = preflight_check(preflight, "gradle-manifest")
         if check and check.get("status") == "not_applicable_by_manifest":
             return "not_applicable_by_manifest", str(check.get("reason") or "Gradle manifest not found"), check
-
     if tool_id == "dependency-check":
         check = preflight_check(preflight, "java-dependency-manifest")
         if check and check.get("status") == "not_applicable_by_manifest":
             return "not_applicable_by_manifest", str(check.get("reason") or "supported dependency manifest not found"), check
 
+    adapter_block = adapter_gate(tool_id, adapter_status)
+    if adapter_block:
+        return adapter_block
     return "planned", "ready", fact_gate
 
 
@@ -155,6 +182,8 @@ def build_plan(run_root: Path) -> dict[str, Any]:
     facts = load_json(facts_path) if facts_path.is_file() else {"tool_gates": {}}
     preflight_path = run_root / "evidence" / "PREFLIGHT_RESULT.json"
     preflight = load_json(preflight_path) if preflight_path.is_file() else {"checks": []}
+    adapter_path = run_root / "evidence" / "TOOL_ADAPTER_STATUS.json"
+    adapter_status = load_json(adapter_path) if adapter_path.is_file() else {"tools": {}}
 
     project_root = Path(project["project_path"]["resolved"])
     base_output = run_root / "evidence" / "tool-outputs"
@@ -167,19 +196,14 @@ def build_plan(run_root: Path) -> dict[str, Any]:
             continue
         tool_id = tool["tool_id"]
         if tool.get("plan_status") != "available" or tool.get("env_status") not in AVAILABLE_STATUSES:
-            skipped.append({
-                "tool_id": tool_id,
-                "reason": "tool_not_available",
-                "plan_status": tool.get("plan_status"),
-                "env_status": tool.get("env_status"),
-            })
+            skipped.append({"tool_id": tool_id, "reason": "tool_not_available", "plan_status": tool.get("plan_status"), "env_status": tool.get("env_status")})
             continue
         for profile in ["offline", "online"]:
             out_dir = (base_output / tool_id / profile).resolve()
-            commands = command(tool_id, profile, str(out_dir))
+            commands = command(tool_id, profile, str(out_dir), adapter_status)
             if not commands:
                 continue
-            gate_status, gate_reason, gate_evidence = execution_gate(tool_id, facts, preflight)
+            gate_status, gate_reason, gate_evidence = execution_gate(tool_id, facts, preflight, adapter_status)
             if gate_status != "planned":
                 items.append(make_item(tool_id, profile, gate_status, gate_reason, project_root, out_dir, commands, authorization, online_allowed, gate_evidence))
                 continue
@@ -192,21 +216,15 @@ def build_plan(run_root: Path) -> dict[str, Any]:
     skipped_by_policy = [x for x in items if x["status"] == "skipped_by_policy"]
     not_app = [x for x in items if x["status"] == "not_applicable_by_manifest"]
     blocked_ctx = [x for x in items if x["status"] == "blocked_requires_context"]
+    blocked_adapter = [x for x in items if x["status"] == "blocked_tool_adapter_incompatible"]
     return {
-        "schema_version": "tool-execution-plan-0.3.0",
-        "run": {
-            "run_id": run_meta.get("run_id"),
-            "project_key": run_meta.get("project_key"),
-            "audit_mode": run_meta.get("audit_mode"),
-        },
-        "project": {
-            "project_path": str(project_root),
-            "project_name": project.get("project_name"),
-            "git": project.get("git", {}),
-        },
+        "schema_version": "tool-execution-plan-0.4.0",
+        "run": {"run_id": run_meta.get("run_id"), "project_key": run_meta.get("project_key"), "audit_mode": run_meta.get("audit_mode")},
+        "project": {"project_path": str(project_root), "project_name": project.get("project_name"), "git": project.get("git", {})},
         "inputs": {
             "project_facts_ref": "audit-map/PROJECT_FACTS.json" if facts_path.is_file() else None,
             "preflight_ref": "evidence/PREFLIGHT_RESULT.json" if preflight_path.is_file() else None,
+            "tool_adapter_status_ref": "evidence/TOOL_ADAPTER_STATUS.json" if adapter_path.is_file() else None,
         },
         "authorization": {
             "agent_network_authorization_mode": authorization.get("authorization_mode", "deny"),
@@ -219,14 +237,16 @@ def build_plan(run_root: Path) -> dict[str, Any]:
             "missing_tool_behavior": "skip_and_record",
             "manifest_not_applicable_behavior": "not_applicable_by_manifest",
             "preflight_block_behavior": "blocked_requires_context",
+            "adapter_incompatible_behavior": "blocked_tool_adapter_incompatible",
             "tool_failure_behavior": "record_failure",
             "write_project_source": False,
         },
         "summary": {
-            "status": "planned" if planned else ("blocked_requires_context" if blocked_ctx else "no_executable_tools"),
+            "status": "planned" if planned else ("blocked_requires_context" if blocked_ctx else ("blocked_tool_adapter_incompatible" if blocked_adapter else "no_executable_tools")),
             "planned_items": len(planned),
             "not_applicable_by_manifest_items": len(not_app),
             "blocked_requires_context_items": len(blocked_ctx),
+            "blocked_tool_adapter_incompatible_items": len(blocked_adapter),
             "skipped_by_policy_items": len(skipped_by_policy),
             "skipped_missing_tools": len(skipped),
         },
@@ -242,6 +262,7 @@ def render_md(plan: dict[str, Any]) -> str:
         f"- Planned items: {plan['summary']['planned_items']}",
         f"- Not applicable by manifest: {plan['summary']['not_applicable_by_manifest_items']}",
         f"- Blocked requires context: {plan['summary']['blocked_requires_context_items']}",
+        f"- Blocked adapter incompatible: {plan['summary']['blocked_tool_adapter_incompatible_items']}",
         f"- Skipped by policy: {plan['summary']['skipped_by_policy_items']}",
         f"- Skipped missing tools: {plan['summary']['skipped_missing_tools']}",
         f"- Tool online allowed: {plan['authorization']['tool_online_allowed']}", "",
@@ -265,6 +286,7 @@ def print_summary(plan: dict[str, Any]) -> None:
     print(f"  planned_items: {s['planned_items']}")
     print(f"  not_applicable_by_manifest_items: {s['not_applicable_by_manifest_items']}")
     print(f"  blocked_requires_context_items: {s['blocked_requires_context_items']}")
+    print(f"  blocked_tool_adapter_incompatible_items: {s['blocked_tool_adapter_incompatible_items']}")
     print(f"  skipped_by_policy_items: {s['skipped_by_policy_items']}")
     print(f"  skipped_missing_tools: {s['skipped_missing_tools']}")
     print(f"  tool_online_allowed: {plan['authorization']['tool_online_allowed']}")

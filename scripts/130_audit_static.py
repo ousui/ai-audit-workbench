@@ -98,6 +98,7 @@ def main(argv: list[str]) -> int:
         ("audit-map", [sys.executable, "scripts/20_build_audit_map.py", "--run-root", str(run_root), "--print-summary"]),
         ("stack-env-check", [sys.executable, "scripts/31_stack_env_check.py", "--run-root", str(run_root), "--include-all-tools", "--tool-matrix", tool_matrix, "--tool-matrix-extensions", tool_matrix_ext, "--print-summary"]),
         ("tool-plan", [sys.executable, "scripts/30_build_tool_plan.py", "--run-root", str(run_root), "--env-result", str(run_root / "evidence" / "STACK_ENV_CHECK_RESULT.json"), "--tool-matrix", tool_matrix, "--tool-matrix-extensions", tool_matrix_ext, "--print-summary"]),
+        ("preflight", [sys.executable, "scripts/25_run_preflight.py", "--run-root", str(run_root), "--print-summary"]),
         ("tool-execution-plan", [sys.executable, "scripts/32_build_tool_execution_plan.py", "--run-root", str(run_root), "--print-summary"]),
         ("ext-tool-run", [sys.executable, "scripts/33_run_tool_execution_plan.py", "--run-root", str(run_root), "--timeout", str(args.tool_timeout), "--print-summary"] + (["--dry-run"] if args.dry_run_external_tools else [])),
         ("ext-tool-candidates", [sys.executable, "scripts/34_import_tool_candidates.py", "--run-root", str(run_root), "--print-summary"]),
@@ -115,7 +116,7 @@ def main(argv: list[str]) -> int:
         steps.append(("debug-trace", [sys.executable, "scripts/110_collect_debug.py", "--run-root", str(run_root), "--debug-level", args.debug_level, "--print-summary"]))
 
     flow_record = {
-        "schema_version": "audit-static-flow-0.2.0",
+        "schema_version": "audit-static-flow-0.3.0",
         "status": "running",
         "run_root": str(run_root),
         "project_path": str(project_path),

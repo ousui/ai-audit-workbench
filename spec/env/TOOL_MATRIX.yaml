@@ -1,0 +1,138 @@
+schema_version: "tool-matrix-0.2.0"
+
+description: >
+  AI Audit Workbench core tool matrix.
+  Stack-specific and security tools are defined in TOOL_MATRIX_EXTENSIONS.yaml.
+
+default_permissions:
+  read_project: true
+  write_project: false
+  write_run_output: true
+  write_cache: true
+  network: false
+  start_service: false
+  dynamic_request: false
+  reverse_artifact: false
+  upload_external: false
+  write_external: false
+
+tools:
+  git:
+    display_name: "Git"
+    category: "core"
+    required_level: "required_for_workbench"
+    stages: [env-check, run-init, audit-map]
+    stacks: [all]
+    detection:
+      commands: ["git --version"]
+      locate: ["command -v git"]
+    missing_impact: "Cannot confirm repository state, branch, commit, or audit baseline."
+    missing_policy: "block_workbench"
+
+  rg:
+    display_name: "ripgrep"
+    category: "core"
+    required_level: "required_for_workbench"
+    stages: [env-check, audit-map, evidence-collection, candidate-build]
+    stacks: [all]
+    detection:
+      commands: ["rg --version"]
+      locate: ["command -v rg"]
+    missing_impact: "Cannot efficiently build audit map or candidate pool."
+    missing_policy: "block_workbench"
+
+  python3:
+    display_name: "Python 3"
+    category: "core"
+    required_level: "required_for_workbench"
+    stages: [env-check, tool-plan, candidate-build, merge, delivery, validate]
+    stacks: [all]
+    detection:
+      commands: ["python3 --version"]
+      locate: ["command -v python3"]
+    missing_impact: "Cannot run workbench automation scripts."
+    missing_policy: "block_workbench"
+
+  bash:
+    display_name: "Bash"
+    category: "core"
+    required_level: "required_for_workbench"
+    stages: [env-check, script-runner]
+    stacks: [all]
+    detection:
+      commands: ["bash --version"]
+      locate: ["command -v bash"]
+    missing_impact: "Some helper scripts may not run."
+    missing_policy: "block_workbench"
+
+  find:
+    display_name: "find"
+    category: "core"
+    required_level: "required_for_workbench"
+    stages: [audit-map, evidence-collection]
+    stacks: [all]
+    detection:
+      commands: ["find --version"]
+      locate: ["command -v find"]
+    missing_impact: "Cannot reliably enumerate source files."
+    missing_policy: "block_workbench"
+
+  grep:
+    display_name: "grep"
+    category: "core"
+    required_level: "required_for_workbench"
+    stages: [env-check, audit-map, evidence-collection]
+    stacks: [all]
+    detection:
+      commands: ["grep --version"]
+      locate: ["command -v grep"]
+    missing_impact: "Fallback text scanning is unavailable."
+    missing_policy: "block_workbench"
+
+  sed:
+    display_name: "sed"
+    category: "core"
+    required_level: "required_for_workbench"
+    stages: [env-check, evidence-collection, validation]
+    stacks: [all]
+    detection:
+      commands: ["sed --version"]
+      locate: ["command -v sed"]
+    missing_impact: "Some shell-based normalization steps may fail."
+    missing_policy: "block_workbench"
+
+  awk:
+    display_name: "awk"
+    category: "core"
+    required_level: "required_for_workbench"
+    stages: [env-check, evidence-collection, validation]
+    stacks: [all]
+    detection:
+      commands: ["awk --version"]
+      locate: ["command -v awk"]
+    missing_impact: "Some shell-based statistics or normalization steps may fail."
+    missing_policy: "block_workbench"
+
+  jq:
+    display_name: "jq"
+    category: "core"
+    required_level: "recommended_for_static"
+    stages: [env-check, tool-output-normalization, validation]
+    stacks: [all]
+    detection:
+      commands: ["jq --version"]
+      locate: ["command -v jq"]
+    missing_impact: "JSON outputs can still be processed by Python, but manual inspection is less convenient."
+    missing_policy: "record_missing_not_blocking"
+
+  tar:
+    display_name: "tar"
+    category: "core"
+    required_level: "recommended_for_static"
+    stages: [archive, delivery]
+    stacks: [all]
+    detection:
+      commands: ["tar --version"]
+      locate: ["command -v tar"]
+    missing_impact: "Artifact packaging may be unavailable."
+    missing_policy: "record_missing_not_blocking"

@@ -19,9 +19,11 @@ REQUIRED_FILES = [
     "evidence/EVIDENCE_PACK.json",
     "evidence/TOOL_RUN_RESULT.json",
     "candidates/CANDIDATE_POOL.json",
+    "knowledge/KB_HITS.json",
     "ai/AI_TRIAGE_INPUT.json",
     "ai/AI_TRIAGE_RESULT.json",
     "merge/MERGE_RESULT.json",
+    "knowledge/KB_UPDATE_SUGGESTIONS.json",
     "delivery/AUDIT_REPORT.md",
     "delivery/AUDIT_REPORT.html",
     "delivery/AUDIT_TRACKING.csv",
@@ -66,10 +68,35 @@ def validate_candidate_pool(path: Path, errors: list[str], warnings: list[str], 
     checks.append({"check": "candidate_lifecycle_fields", "status": "ok" if not bad_status and not missing_events else "failed", "candidates": len(pool.get("candidates", []))})
 
 
+def validate_knowledge(run_root: Path, errors: list[str], warnings: list[str], checks: list[dict[str, Any]]) -> None:
+    hits_path = run_root / "knowledge" / "KB_HITS.json"
+    suggestions_path = run_root / "knowledge" / "KB_UPDATE_SUGGESTIONS.json"
+    ai_input_path = run_root / "ai" / "AI_TRIAGE_INPUT.json"
+    if hits_path.is_file():
+        hits = load_json(hits_path)
+        if hits.get("schema_version") != "kb-hits-0.1.0":
+            errors.append("KB_HITS schema_version mismatch")
+        checks.append({"check": "kb_hits", "status": "ok", "total_hits": hits.get("summary", {}).get("total_hits", 0)})
+    if suggestions_path.is_file():
+        suggestions = load_json(suggestions_path)
+        if suggestions.get("schema_version") != "kb-update-suggestions-0.1.0":
+            errors.append("KB_UPDATE_SUGGESTIONS schema_version mismatch")
+        for item in suggestions.get("suggestions") or []:
+            if item.get("requires_human_approval") is not True:
+                errors.append(f"knowledge suggestion must require human approval: {item.get('suggestion_id')}")
+        checks.append({"check": "kb_update_suggestions", "status": "ok", "total_suggestions": suggestions.get("summary", {}).get("total_suggestions", 0)})
+    if ai_input_path.is_file():
+        ai_input = load_json(ai_input_path)
+        if "knowledge_policy" not in ai_input:
+            errors.append("AI_TRIAGE_INPUT missing knowledge_policy")
+        checks.append({"check": "ai_knowledge_policy", "status": "ok" if "knowledge_policy" in ai_input else "failed"})
+
+
 def validate_merge(path: Path, errors: list[str], warnings: list[str], checks: list[dict[str, Any]]) -> None:
     merge = load_json(path)
     summary = merge.get("summary", {})
     checks.append({"check": "merge_report_count", "status": "ok", "value": summary.get("report_include_count", 0)})
+    checks.append({"check": "merge_knowledge_hits", "status": "ok", "value": summary.get("knowledge_hit_count", 0)})
     if merge.get("triage_mode") == "STUB":
         warnings.append("AI triage mode is STUB. Delivery is for pipeline validation only.")
     for bucket in ["findings", "review_items", "runtime_items", "candidate_items", "fp_items", "blocked_items"]:
@@ -113,6 +140,7 @@ def validate(run_root: Path) -> dict[str, Any]:
     tracking_path = run_root / "delivery" / "AUDIT_TRACKING.csv"
     if candidate_path.is_file():
         validate_candidate_pool(candidate_path, errors, warnings, checks)
+    validate_knowledge(run_root, errors, warnings, checks)
     if merge_path.is_file():
         validate_merge(merge_path, errors, warnings, checks)
     if delivery_record_path.is_file():
@@ -121,7 +149,7 @@ def validate(run_root: Path) -> dict[str, Any]:
     if tracking_path.is_file():
         validate_tracking(tracking_path, errors, checks)
     status = "passed" if not errors else "failed"
-    return {"schema_version": "validation-result-0.2.0", "status": status, "error_count": len(errors), "warning_count": len(warnings), "errors": errors, "warnings": warnings, "checks": checks}
+    return {"schema_version": "validation-result-0.3.0", "status": status, "error_count": len(errors), "warning_count": len(warnings), "errors": errors, "warnings": warnings, "checks": checks}
 
 
 def render_md(result: dict[str, Any]) -> str:

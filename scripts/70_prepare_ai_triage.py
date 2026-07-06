@@ -20,6 +20,10 @@ def write_json(path: Path, data: Any) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def load_optional_json(path: Path) -> dict[str, Any]:
+    return load_json(path) if path.is_file() else {}
+
+
 def lifecycle_policy() -> dict[str, Any]:
     return {
         "spec_ref": "spec/rules/audit-lifecycle.yaml",
@@ -34,16 +38,48 @@ def lifecycle_policy() -> dict[str, Any]:
     }
 
 
+def knowledge_policy(kb_hits: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "spec_ref": "spec/rules/audit-knowledge.yaml",
+        "kb_hits_available": bool(kb_hits),
+        "kb_hits_ref": "knowledge/KB_HITS.json" if kb_hits else None,
+        "rules": [
+            "Knowledge hits are advisory only.",
+            "Knowledge hits must not override current code facts, tool evidence, or human confirmation.",
+            "AI may emit knowledge_update_suggestions but must not directly modify AUDIT_KNOWLEDGE.yaml.",
+        ],
+    }
+
+
+def enrich_candidates_with_kb(candidates: list[dict[str, Any]], kb_hits: dict[str, Any]) -> list[dict[str, Any]]:
+    by_candidate = kb_hits.get("candidate_hits") or {}
+    enriched: list[dict[str, Any]] = []
+    for item in candidates:
+        copied = dict(item)
+        hits = by_candidate.get(item.get("candidate_id") or "") or []
+        copied["knowledge_hits"] = hits[:5]
+        if hits:
+            tags = list(copied.get("tags") or [])
+            if "knowledge_hit" not in tags:
+                tags.append("knowledge_hit")
+            copied["tags"] = tags
+        enriched.append(copied)
+    return enriched
+
+
 def build_input(run_root: Path, max_candidates: int) -> dict[str, Any]:
     pack = load_json(run_root / "evidence" / "EVIDENCE_PACK.json")
     pool = load_json(run_root / "candidates" / "CANDIDATE_POOL.json")
-    candidates = pool.get("candidates") or []
+    kb_hits = load_optional_json(run_root / "knowledge" / "KB_HITS.json")
+    candidates = enrich_candidates_with_kb(pool.get("candidates") or [], kb_hits)
     return {
-        "schema_version": "ai-triage-input-0.3.0",
+        "schema_version": "ai-triage-input-0.4.0",
         "triage_mode": "FAST_STATIC",
         "run": pack.get("run"),
         "project": pack.get("project"),
         "lifecycle_policy": lifecycle_policy(),
+        "knowledge_policy": knowledge_policy(kb_hits),
+        "knowledge_summary": kb_hits.get("summary", {}),
         "evidence_pack_summary": {
             "audit_map_summary": pack.get("audit_map_summary", {}),
             "project_facts_summary": pack.get("project_facts_summary", {}),
@@ -59,6 +95,7 @@ def build_input(run_root: Path, max_candidates: int) -> dict[str, Any]:
             "prompt_ref": "spec/prompts/triage/FAST_STATIC.md",
             "output_schema_ref": "spec/schemas/AI_TRIAGE_RESULT.schema.json",
             "lifecycle_spec_ref": "spec/rules/audit-lifecycle.yaml",
+            "knowledge_spec_ref": "spec/rules/audit-knowledge.yaml",
             "must_not_create_unreferenced_findings": True,
             "current_stage_dynamic_testing": False,
         },
@@ -123,6 +160,7 @@ def print_summary(triage_input: dict[str, Any], stub_result: dict[str, Any] | No
     print(f"  candidates: {len(triage_input.get('candidates') or [])}")
     print(f"  mode: {triage_input.get('triage_mode')}")
     print(f"  lifecycle_spec: {triage_input.get('lifecycle_policy', {}).get('spec_ref')}")
+    print(f"  kb_hits: {triage_input.get('knowledge_summary', {}).get('total_hits', 0)}")
     if stub_result is not None:
         print(f"  stub_items: {len(stub_result.get('items') or [])}")
 

@@ -54,6 +54,7 @@ def validate_outputs(run_root: Path, expected: dict[str, Any]) -> tuple[list[str
         risk_types = sorted({item.get("risk_type") for item in candidates if item.get("risk_type")})
         metrics["total_candidates"] = len(candidates)
         metrics["risk_types"] = risk_types
+        metrics["candidate_schema_version"] = pool.get("schema_version")
         min_total = expected["expected"].get("min_total_candidates", 0)
         if len(candidates) < min_total:
             errors.append(f"candidate count too low: {len(candidates)} < {min_total}")
@@ -83,7 +84,7 @@ def run_benchmark(item: dict[str, Any]) -> dict[str, Any]:
         shutil.rmtree(run_root)
     cmd = [
         sys.executable,
-        "scripts/100_fast_static.py",
+        "scripts/130_audit_static.py",
         "--project-path",
         item["project_path"],
         "--project-code",
@@ -94,13 +95,18 @@ def run_benchmark(item: dict[str, Any]) -> dict[str, Any]:
         item["run_id"],
         "--output-root",
         "var/runs",
+        "--network-authorization",
+        "once",
+        "--tool-timeout",
+        "30",
+        "--dry-run-external-tools",
     ]
     code, stdout, stderr = run_cmd(cmd)
     errors: list[str] = []
     warnings: list[str] = []
     metrics: dict[str, Any] = {}
     if code != 0:
-        errors.append(f"fast-static exited with code {code}")
+        errors.append(f"audit-static exited with code {code}")
     if run_root.is_dir():
         output_errors, output_warnings, metrics = validate_outputs(run_root, expected)
         errors.extend(output_errors)
@@ -124,7 +130,7 @@ def run_benchmark(item: dict[str, Any]) -> dict[str, Any]:
 def render_md(result: dict[str, Any]) -> str:
     lines = ["# BENCHMARK_RESULT", "", f"- Status: `{result['status']}`", f"- Total: {result['summary']['total']}", f"- Passed: {result['summary']['passed']}", f"- Failed: {result['summary']['failed']}", ""]
     for item in result.get("items", []):
-        lines.extend([f"## {item['benchmark_id']}", "", f"- Status: `{item['status']}`", f"- Run root: `{item['run_root']}`", f"- Candidate count: {item.get('metrics', {}).get('total_candidates', '-')}", f"- Risk types: {', '.join(item.get('metrics', {}).get('risk_types', [])) or '-'}", ""])
+        lines.extend([f"## {item['benchmark_id']}", "", f"- Status: `{item['status']}`", f"- Run root: `{item['run_root']}`", f"- Candidate count: {item.get('metrics', {}).get('total_candidates', '-')}", f"- Candidate schema: {item.get('metrics', {}).get('candidate_schema_version', '-')}", f"- Risk types: {', '.join(item.get('metrics', {}).get('risk_types', [])) or '-'}", ""])
         if item.get("errors"):
             lines.append("### Errors")
             for error in item["errors"]:
@@ -148,16 +154,7 @@ def main(argv: list[str]) -> int:
         print(f"[FAIL] benchmark not found: {args.benchmark_id}", file=sys.stderr)
         return 2
     items = [run_benchmark(item) for item in selected]
-    result = {
-        "schema_version": "benchmark-result-0.2.0",
-        "summary": {
-            "total": len(items),
-            "passed": sum(1 for item in items if item["status"] == "passed"),
-            "failed": sum(1 for item in items if item["status"] == "failed"),
-        },
-        "status": "passed" if all(item["status"] == "passed" for item in items) else "failed",
-        "items": items,
-    }
+    result = {"schema_version": "benchmark-result-0.3.0", "summary": {"total": len(items), "passed": sum(1 for item in items if item["status"] == "passed"), "failed": sum(1 for item in items if item["status"] == "failed")}, "status": "passed" if all(item["status"] == "passed" for item in items) else "failed", "items": items}
     RESULT_DIR.mkdir(parents=True, exist_ok=True)
     write_json(RESULT_DIR / "BENCHMARK_RESULT.json", result)
     (RESULT_DIR / "BENCHMARK_RESULT.md").write_text(render_md(result), encoding="utf-8")

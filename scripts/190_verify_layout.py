@@ -27,6 +27,7 @@ REQUIRED_FILES = [
     "spec/rules/README.md",
     "spec/rules/candidate-recipes.yaml",
     "spec/rules/risk-taxonomy.yaml",
+    "spec/rules/audit-lifecycle.yaml",
     "spec/rules/project-doc-fields.yaml",
     "spec/prompts/README.md",
     "spec/prompts/triage/FAST_STATIC.md",
@@ -122,7 +123,6 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--with-smoke", action="store_true", help="Also run smoke check.")
     parser.add_argument("--print-summary", action="store_true")
     args = parser.parse_args(argv)
-
     errors: list[str] = []
     warnings: list[str] = []
     file_errors, file_warnings = check_files()
@@ -135,19 +135,10 @@ def main(argv: list[str]) -> int:
         smoke_errors, smoke_warnings = check_smoke()
         errors.extend(smoke_errors)
         warnings.extend(smoke_warnings)
-
-    result: dict[str, Any] = {
-        "schema_version": "layout-verify-result-0.5.0",
-        "status": "passed" if not errors else "failed",
-        "error_count": len(errors),
-        "warning_count": len(warnings),
-        "errors": errors,
-        "warnings": warnings,
-    }
+    result: dict[str, Any] = {"schema_version": "layout-verify-result-0.6.0", "status": "passed" if not errors else "failed", "error_count": len(errors), "warning_count": len(warnings), "errors": errors, "warnings": warnings}
     out = ROOT / "var" / "tmp" / "layout-verify"
     out.mkdir(parents=True, exist_ok=True)
     (out / "LAYOUT_VERIFY_RESULT.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-
     if args.print_summary:
         print("layout-verify summary")
         print(f"  status: {result['status']}")

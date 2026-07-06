@@ -18,12 +18,21 @@ def load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def load_optional_json(path: Path) -> dict[str, Any]:
+    return load_json(path) if path.is_file() else {}
+
+
 def write_json(path: Path, data: Any) -> None:
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 def candidate_by_id(pool: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return {item.get("candidate_id"): item for item in pool.get("candidates", []) if item.get("candidate_id")}
+
+
+def knowledge_hits_by_candidate(kb_hits: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    raw = kb_hits.get("candidate_hits") or {}
+    return raw if isinstance(raw, dict) else {}
 
 
 def uniq(values: list[str]) -> list[str]:
@@ -49,9 +58,11 @@ def default_verification_status(decision: str) -> str | None:
     return "PENDING" if decision == "FIND" else None
 
 
-def build_record(seq: int, decision: str, triage: dict[str, Any], candidate: dict[str, Any]) -> dict[str, Any]:
+def build_record(seq: int, decision: str, triage: dict[str, Any], candidate: dict[str, Any], kb_for_candidate: list[dict[str, Any]]) -> dict[str, Any]:
     risk_id = f"{decision}-{seq:05d}"
     tags = uniq([*(candidate.get("tags") or []), *(triage.get("tags") or [])])
+    if kb_for_candidate and "knowledge_hit" not in tags:
+        tags.append("knowledge_hit")
     events = list(candidate.get("lifecycle_events") or [])
     events.append(audit_decision_event(candidate, triage, decision))
     severity = triage.get("severity") or candidate.get("severity_hint") or "P2"
@@ -79,6 +90,7 @@ def build_record(seq: int, decision: str, triage: dict[str, Any], candidate: dic
         "recommendation": triage.get("recommendation") or "",
         "reason": triage.get("reason") or "",
         "tags": tags,
+        "knowledge_hits": kb_for_candidate,
         "business_status": candidate.get("business_status") or default_business_status(decision),
         "verification_status": candidate.get("verification_status") or default_verification_status(decision),
         "resolution_reason": candidate.get("resolution_reason"),
@@ -97,13 +109,17 @@ def merge(run_root: Path) -> dict[str, Any]:
     pack = load_json(run_root / "evidence" / "EVIDENCE_PACK.json")
     pool = load_json(run_root / "candidates" / "CANDIDATE_POOL.json")
     triage = load_json(run_root / "ai" / "AI_TRIAGE_RESULT.json")
+    kb_hits = load_optional_json(run_root / "knowledge" / "KB_HITS.json")
+    kb_by_candidate = knowledge_hits_by_candidate(kb_hits)
     candidates = candidate_by_id(pool)
     result: dict[str, Any] = {
-        "schema_version": "merge-result-0.2.0",
+        "schema_version": "merge-result-0.3.0",
         "lifecycle_spec_ref": "spec/rules/audit-lifecycle.yaml",
+        "knowledge_spec_ref": "spec/rules/audit-knowledge.yaml",
         "run": pack.get("run"),
         "project": {"project_code": pack.get("project", {}).get("project_code"), "project_name": pack.get("project", {}).get("project_name")},
         "triage_mode": triage.get("triage_mode"),
+        "knowledge_summary": kb_hits.get("summary", {}),
         "summary": {"find_count": 0, "review_count": 0, "runtime_count": 0, "candidate_count": 0, "fp_count": 0, "blocked_count": 0, "report_include_count": 0, "unknown_candidate_refs": 0},
         "findings": [],
         "review_items": [],
@@ -128,7 +144,7 @@ def merge(run_root: Path) -> dict[str, Any]:
         if decision not in DECISION_BUCKETS:
             decision = "CAND"
         seq_by_decision[decision] += 1
-        record = build_record(seq_by_decision[decision], decision, item, candidate)
+        record = build_record(seq_by_decision[decision], decision, item, candidate, kb_by_candidate.get(cid) or [])
         result[DECISION_BUCKETS[decision]].append(record)
         result["id_map"].append({"candidate_id": cid, "target_id": record["risk_id"], "decision": decision})
         result["knowledge_update_suggestions"].extend(record.get("knowledge_update_suggestions") or [])
@@ -136,12 +152,12 @@ def merge(run_root: Path) -> dict[str, Any]:
         if cid in handled_candidates:
             continue
         seq_by_decision["CAND"] += 1
-        record = build_record(seq_by_decision["CAND"], "CAND", {}, candidate)
+        record = build_record(seq_by_decision["CAND"], "CAND", {}, candidate, kb_by_candidate.get(cid) or [])
         result["candidate_items"].append(record)
         result["id_map"].append({"candidate_id": cid, "target_id": record["risk_id"], "decision": "CAND"})
     for key in ["findings", "review_items", "runtime_items", "candidate_items", "fp_items", "blocked_items"]:
         result[key] = sort_items(result[key])
-    result["summary"].update({"find_count": len(result["findings"]), "review_count": len(result["review_items"]), "runtime_count": len(result["runtime_items"]), "candidate_count": len(result["candidate_items"]), "fp_count": len(result["fp_items"]), "blocked_count": len(result["blocked_items"]), "report_include_count": len(result["findings"]) + len(result["review_items"]) + len(result["runtime_items"]) + len(result["blocked_items"])})
+    result["summary"].update({"find_count": len(result["findings"]), "review_count": len(result["review_items"]), "runtime_count": len(result["runtime_items"]), "candidate_count": len(result["candidate_items"]), "fp_count": len(result["fp_items"]), "blocked_count": len(result["blocked_items"]), "report_include_count": len(result["findings"]) + len(result["review_items"]) + len(result["runtime_items"]) + len(result["blocked_items"]), "knowledge_hit_count": len(kb_hits.get("hits") or [])})
     if triage.get("triage_mode") == "STUB":
         result["notes"].append("AI triage result is STUB. Delivery is for pipeline validation only.")
     return result
@@ -149,7 +165,7 @@ def merge(run_root: Path) -> dict[str, Any]:
 
 def render_md(result: dict[str, Any]) -> str:
     s = result["summary"]
-    lines = ["# MERGE_RESULT", "", "## Summary", "", f"- Triage mode: `{result.get('triage_mode')}`", f"- FIND: {s['find_count']}", f"- REVIEW: {s['review_count']}", f"- RUNTIME: {s['runtime_count']}", f"- CAND: {s['candidate_count']}", f"- FP: {s['fp_count']}", f"- BLOCKED: {s['blocked_count']}", ""]
+    lines = ["# MERGE_RESULT", "", "## Summary", "", f"- Triage mode: `{result.get('triage_mode')}`", f"- FIND: {s['find_count']}", f"- REVIEW: {s['review_count']}", f"- RUNTIME: {s['runtime_count']}", f"- CAND: {s['candidate_count']}", f"- FP: {s['fp_count']}", f"- BLOCKED: {s['blocked_count']}", f"- Knowledge hits: {s.get('knowledge_hit_count', 0)}", ""]
     for key, title in [("findings", "FIND"), ("review_items", "REVIEW"), ("runtime_items", "RUNTIME"), ("blocked_items", "BLOCKED"), ("candidate_items", "CAND")]:
         lines.extend([f"## {title}", ""])
         items = result.get(key) or []
@@ -157,7 +173,8 @@ def render_md(result: dict[str, Any]) -> str:
             lines.append("- None")
         for item in items[:80]:
             taxonomy = f"{item.get('risk_parent') or '-'}:{item.get('risk_subtype') or '-'}"
-            lines.append(f"- `{item['risk_id']}` `{item.get('severity')}` `{taxonomy}` `{item.get('file_path')}:{item.get('line_start')}` {item.get('title')}")
+            kb = len(item.get("knowledge_hits") or [])
+            lines.append(f"- `{item['risk_id']}` `{item.get('severity')}` `{taxonomy}` kb={kb} `{item.get('file_path')}:{item.get('line_start')}` {item.get('title')}")
         lines.append("")
     if result.get("notes"):
         lines.extend(["## Notes", ""])
@@ -177,6 +194,7 @@ def print_summary(result: dict[str, Any]) -> None:
     print(f"  CAND: {s['candidate_count']}")
     print(f"  FP: {s['fp_count']}")
     print(f"  BLOCKED: {s['blocked_count']}")
+    print(f"  knowledge_hits: {s.get('knowledge_hit_count', 0)}")
     print(f"  report_include_count: {s['report_include_count']}")
 
 

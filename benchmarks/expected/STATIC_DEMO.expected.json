@@ -21,9 +21,11 @@
       "evidence/EVIDENCE_PACK.json",
       "evidence/TOOL_RUN_RESULT.json",
       "candidates/CANDIDATE_POOL.json",
+      "knowledge/KB_HITS.json",
       "ai/AI_TRIAGE_INPUT.json",
       "ai/AI_TRIAGE_RESULT.json",
       "merge/MERGE_RESULT.json",
+      "knowledge/KB_UPDATE_SUGGESTIONS.json",
       "delivery/AUDIT_REPORT.md",
       "delivery/AUDIT_TRACKING.csv",
       "validate/VALIDATION_RESULT.json"

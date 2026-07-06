@@ -6,30 +6,67 @@
   "additionalProperties": false,
   "required": ["schema_version", "triage_mode", "items"],
   "properties": {
-    "schema_version": {"type": "string", "const": "ai-triage-result-0.1.0"},
+    "schema_version": {"type": "string", "const": "ai-triage-result-0.2.0"},
     "triage_mode": {"type": "string", "enum": ["FAST_STATIC", "STANDARD_STATIC", "DEEP_STATIC_EXPLORE", "STUB"]},
     "items": {"type": "array", "items": {"$ref": "#/$defs/item"}},
+    "knowledge_update_suggestions": {"type": "array", "items": {"$ref": "#/$defs/knowledge_suggestion"}, "default": []},
     "notes": {"type": "array", "items": {"type": "string"}, "default": []}
   },
   "$defs": {
+    "audit_status": {"type": "string", "enum": ["FIND", "REVIEW", "RUNTIME", "CAND", "FP", "BLOCKED"]},
+    "severity": {"type": "string", "enum": ["P0", "P1", "P2", "P3", "P4"]},
+    "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+    "event": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["event_type", "stage", "actor", "to", "reason"],
+      "properties": {
+        "event_type": {"type": "string", "enum": ["audit_decision"]},
+        "stage": {"type": "string"},
+        "actor": {"type": "string"},
+        "from": {"type": "object", "additionalProperties": true},
+        "to": {"type": "object", "additionalProperties": true},
+        "reason": {"type": "string"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}, "default": []}
+      }
+    },
     "item": {
       "type": "object",
       "additionalProperties": false,
       "required": ["candidate_id", "decision", "severity", "confidence", "title", "risk_type", "evidence", "reason"],
       "properties": {
         "candidate_id": {"type": "string"},
-        "decision": {"type": "string", "enum": ["FIND", "REVIEW", "RUNTIME", "CAND", "NO_RISK", "FP", "BLOCKED"]},
-        "severity": {"type": "string", "enum": ["P0", "P1", "P2", "P3"]},
-        "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+        "decision": {"$ref": "#/$defs/audit_status"},
+        "severity": {"$ref": "#/$defs/severity"},
+        "confidence": {"$ref": "#/$defs/confidence"},
         "title": {"type": "string"},
         "risk_type": {"type": "string"},
+        "risk_parent": {"type": ["string", "null"], "default": null},
+        "risk_subtype": {"type": ["string", "null"], "default": null},
         "evidence": {"type": "string"},
         "risk_chain": {"type": "string", "default": ""},
         "negative_evidence_checked": {"type": "array", "items": {"type": "string"}, "default": []},
         "missing_evidence": {"type": "array", "items": {"type": "string"}, "default": []},
         "impact": {"type": "string", "default": ""},
         "recommendation": {"type": "string", "default": ""},
+        "tags": {"type": "array", "items": {"type": "string"}, "default": []},
+        "lifecycle_event": {"$ref": "#/$defs/event"},
+        "questions_for_human": {"type": "array", "items": {"type": "string"}, "default": []},
+        "knowledge_update_suggestions": {"type": "array", "items": {"$ref": "#/$defs/knowledge_suggestion"}, "default": []},
         "reason": {"type": "string"}
+      }
+    },
+    "knowledge_suggestion": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["type", "summary", "requires_human_approval"],
+      "properties": {
+        "type": {"type": "string"},
+        "summary": {"type": "string"},
+        "scope": {"type": "string", "enum": ["global", "project", "run"], "default": "run"},
+        "evidence_refs": {"type": "array", "items": {"type": "string"}, "default": []},
+        "confidence": {"$ref": "#/$defs/confidence"},
+        "requires_human_approval": {"type": "boolean", "const": true}
       }
     }
   }

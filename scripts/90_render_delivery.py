@@ -28,6 +28,18 @@ def report_items(result: dict[str, Any]) -> list[dict[str, Any]]:
     return items
 
 
+def loc(item: dict[str, Any]) -> str:
+    return f"{item.get('file_path')}:{item.get('line_start')}" if item.get("file_path") else "-"
+
+
+def taxonomy(item: dict[str, Any]) -> str:
+    return f"{item.get('risk_parent') or '-'} / {item.get('risk_subtype') or '-'}"
+
+
+def tags_text(item: dict[str, Any]) -> str:
+    return ",".join(item.get("tags") or [])
+
+
 def render_report_md(result: dict[str, Any], audit_map: dict[str, Any]) -> str:
     project = result.get("project", {})
     run = result.get("run", {})
@@ -39,29 +51,23 @@ def render_report_md(result: dict[str, Any], audit_map: dict[str, Any]) -> str:
         "| 项目 | 内容 |", "|---|---|",
         f"| 项目编号 | {project.get('project_code') or ''} |",
         f"| 项目名称 | {project.get('project_name') or ''} |",
-        f"| 审计方式 | 静态代码分析 + AI 辅助候选判断 |",
+        "| 审计方式 | 静态代码分析 + AI 辅助候选判断 |",
         f"| 审计模式 | {run.get('audit_mode') or ''} |",
-        f"| 是否动态测试 | 否 |",
-        f"| 是否逆向分析 | 否 |",
+        "| 是否动态测试 | 否 |",
+        "| 是否逆向分析 | 否 |",
         f"| 检测技术栈 | {', '.join(stacks) if stacks else '-'} |", "",
         "## 二、审计限制", "",
         "本次审计仅基于静态代码、审计地图、确定性扫描结果和候选判断结果。",
         "本次未进行动态测试、接口实测、生产探测或移动端逆向验证。",
         "因此报告中的问题状态仅表示静态审计结论或待确认事项，不代表动态可利用性验证。", "",
         "## 三、风险概览", "",
-        "| 类型 | 数量 |", "|---|---:|",
-        f"| FIND 静态确认 | {summary.get('find_count', 0)} |",
-        f"| REVIEW 需业务方确认 | {summary.get('review_count', 0)} |",
-        f"| RUNTIME 需动态验证 | {summary.get('runtime_count', 0)} |",
-        f"| BLOCKED 未覆盖 / 阻断 | {summary.get('blocked_count', 0)} |", "",
+        "| 状态 | 数量 |", "|---|---:|",
+        f"| FIND 确认问题 | {summary.get('find_count', 0)} |",
+        f"| REVIEW 需人工确认 | {summary.get('review_count', 0)} |",
+        f"| RUNTIME 需运行时验证 | {summary.get('runtime_count', 0)} |",
+        f"| BLOCKED 审计受阻 | {summary.get('blocked_count', 0)} |", "",
     ]
-
-    sections = [
-        ("findings", "四、静态确认问题"),
-        ("review_items", "五、需业务方确认问题"),
-        ("runtime_items", "六、需动态验证问题"),
-        ("blocked_items", "七、未覆盖 / 阻断项"),
-    ]
+    sections = [("findings", "四、确认问题 FIND"), ("review_items", "五、需人工确认 REVIEW"), ("runtime_items", "六、需运行时验证 RUNTIME"), ("blocked_items", "七、审计受阻 BLOCKED")]
     for key, title in sections:
         lines.extend([f"## {title}", ""])
         items = result.get(key) or []
@@ -72,16 +78,20 @@ def render_report_md(result: dict[str, Any], audit_map: dict[str, Any]) -> str:
         for item in items:
             lines.extend([
                 f"### {item.get('risk_id')} {item.get('title')}", "",
+                f"- 审计状态：{item.get('status') or item.get('decision')}",
                 f"- 等级：{item.get('severity')}",
-                f"- 状态：{item.get('decision')}",
-                f"- 位置：{item.get('file_path')}:{item.get('line_start')}",
+                f"- 置信度：{item.get('confidence')}",
+                f"- 风险分类：{taxonomy(item)}",
+                f"- 业务反馈状态：{item.get('business_status') or ''}",
+                f"- 审计复核状态：{item.get('verification_status') or ''}",
+                f"- 位置：{loc(item)}",
+                f"- 标签：{tags_text(item)}",
                 f"- 证据：{item.get('evidence') or ''}",
                 f"- 风险链路：{item.get('risk_chain') or ''}",
                 f"- 影响：{item.get('impact') or ''}",
                 f"- 修复建议：{item.get('recommendation') or ''}",
                 f"- 判断依据：{item.get('reason') or ''}", "",
             ])
-
     if result.get("notes"):
         lines.extend(["## 八、过程说明", ""])
         for note in result["notes"]:
@@ -137,15 +147,12 @@ code{background:#f3f4f6;padding:1px 4px;border-radius:3px}
 
 def write_tracking_csv(path: Path, result: dict[str, Any]) -> int:
     items = report_items(result)
-    headers = ["编号", "状态", "等级", "类型", "标题", "位置", "证据摘要", "影响", "整改建议", "复核状态"]
+    headers = ["finding_id", "candidate_id", "audit_status", "business_status", "verification_status", "resolution_reason", "severity", "confidence", "risk_parent", "risk_subtype", "risk_type", "title", "file_path", "line", "evidence", "impact", "remediation_advice", "tags", "owner", "due_date", "business_comment", "audit_comment"]
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle)
         writer.writerow(headers)
         for item in items:
-            writer.writerow([
-                item.get("risk_id"), item.get("decision"), item.get("severity"), item.get("risk_type"), item.get("title"),
-                f"{item.get('file_path')}:{item.get('line_start')}", item.get("evidence"), item.get("impact"), item.get("recommendation"), "待处理",
-            ])
+            writer.writerow([item.get("risk_id"), item.get("source_candidate_id"), item.get("status") or item.get("decision"), item.get("business_status") or ("PENDING" if item.get("decision") == "FIND" else ""), item.get("verification_status") or ("PENDING" if item.get("decision") == "FIND" else ""), item.get("resolution_reason") or "", item.get("severity"), item.get("confidence"), item.get("risk_parent"), item.get("risk_subtype"), item.get("risk_type"), item.get("title"), item.get("file_path"), item.get("line_start"), item.get("evidence"), item.get("impact"), item.get("recommendation"), tags_text(item), "", "", "", ""])
     return len(items)
 
 
@@ -170,7 +177,7 @@ def main(argv: list[str]) -> int:
     (out / "AUDIT_REPORT.md").write_text(md, encoding="utf-8")
     (out / "AUDIT_REPORT.html").write_text(md_to_html(md), encoding="utf-8")
     row_count = write_tracking_csv(out / "AUDIT_TRACKING.csv", result)
-    record = {"schema_version": "delivery-record-0.1.0", "run": result.get("run"), "source": "merge/MERGE_RESULT.json", "files": ["AUDIT_REPORT.md", "AUDIT_REPORT.html", "AUDIT_TRACKING.csv"], "tracking_rows": row_count}
+    record = {"schema_version": "delivery-record-0.2.0", "run": result.get("run"), "source": "merge/MERGE_RESULT.json", "files": ["AUDIT_REPORT.md", "AUDIT_REPORT.html", "AUDIT_TRACKING.csv"], "tracking_rows": row_count, "lifecycle_spec_ref": "spec/rules/audit-lifecycle.yaml"}
     write_json(out / "DELIVERY_RECORD.json", record)
     if args.print_summary:
         print("delivery summary")

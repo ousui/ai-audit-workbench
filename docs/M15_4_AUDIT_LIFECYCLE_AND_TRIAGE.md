@@ -1,6 +1,6 @@
-# M15.4：Audit Lifecycle / Candidate Taxonomy / AI Triage
+# M15.4：Audit Lifecycle / Candidate Taxonomy / AI Triage / Knowledge Suggestions
 
-本阶段目标：将候选、AI triage、merge、报告和整改清单统一到稳定的审计生命周期模型中，避免状态含义分散或过度设计。
+本阶段目标：将候选、AI triage、merge、报告和整改清单统一到稳定的审计生命周期模型中，并引入只读知识库命中与知识库更新建议，避免状态含义分散或过度设计。
 
 ## 状态模型
 
@@ -84,6 +84,8 @@ tool_blocked
 engineering_governance
 accepted_risk
 track_next_round
+knowledge_hit
+knowledge_suggestion
 ```
 
 ## lifecycle_events
@@ -103,6 +105,37 @@ M16 CHK 后续再使用：
 business_response
 verification_decision
 audit_reclassified
+```
+
+## Knowledge Base
+
+知识库默认位置：
+
+```text
+local/registry/knowledge/AUDIT_KNOWLEDGE.yaml
+```
+
+本阶段只读匹配，不自动写入。
+
+运行产物：
+
+```text
+var/runs/<project>/<run>/knowledge/KB_HITS.json
+var/runs/<project>/<run>/knowledge/KB_HITS.md
+var/runs/<project>/<run>/knowledge/KB_UPDATE_SUGGESTIONS.json
+var/runs/<project>/<run>/knowledge/KB_UPDATE_SUGGESTIONS.md
+```
+
+规则：
+
+```text
+知识库命中只能辅助 AI triage
+知识库命中不能覆盖当前代码事实和工具证据
+AI 可以生成 KB_UPDATE_SUGGESTIONS
+脚本可以生成保守 KB_UPDATE_SUGGESTIONS
+所有 suggestion 都必须 requires_human_approval=true
+不得自动写入 AUDIT_KNOWLEDGE.yaml
+accepted risk 只能作为项目/业务级记录，不能成为全局误报规则
 ```
 
 ## AI triage
@@ -129,6 +162,15 @@ NO_FIX_CONFIRMED
 
 AI 可以输出 tags、questions_for_human、knowledge_update_suggestions，但知识库写入不在 M15.4 自动执行。
 
+AI 输入中会包含：
+
+```text
+lifecycle_policy
+knowledge_policy
+knowledge_summary
+candidate.knowledge_hits
+```
+
 ## Merge / Delivery
 
 Merge 结果中：
@@ -137,6 +179,7 @@ Merge 结果中：
 - FIND 默认进入整改清单。
 - FIND 的 `business_status` 默认 `PENDING`。
 - FIND 的 `verification_status` 默认 `PENDING`。
+- 如有知识库命中，结果项会携带 `knowledge_hits`，并增加 `knowledge_hit` tag。
 
 整改 CSV 增加生命周期字段：
 
@@ -168,7 +211,11 @@ make audit-static \
   NETWORK_AUTHORIZATION=once \
   DRY_RUN=true
 
-cat var/runs/LIFECYCLE_TEST/FAST_STATIC_*/candidates/CANDIDATE_POOL.md
-cat var/runs/LIFECYCLE_TEST/FAST_STATIC_*/merge/MERGE_RESULT.md
-head -1 var/runs/LIFECYCLE_TEST/FAST_STATIC_*/delivery/AUDIT_TRACKING.csv
+RUN_ROOT="$(ls -td var/runs/LIFECYCLE_TEST/FAST_STATIC_* | head -1)"
+cat "$RUN_ROOT/candidates/CANDIDATE_POOL.md"
+cat "$RUN_ROOT/knowledge/KB_HITS.md"
+cat "$RUN_ROOT/ai/AI_TRIAGE_INPUT.json" | head -120
+cat "$RUN_ROOT/merge/MERGE_RESULT.md"
+cat "$RUN_ROOT/knowledge/KB_UPDATE_SUGGESTIONS.md"
+head -1 "$RUN_ROOT/delivery/AUDIT_TRACKING.csv"
 ```

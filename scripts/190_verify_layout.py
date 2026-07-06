@@ -28,6 +28,7 @@ REQUIRED_FILES = [
     "spec/rules/candidate-recipes.yaml",
     "spec/rules/risk-taxonomy.yaml",
     "spec/rules/audit-lifecycle.yaml",
+    "spec/rules/audit-knowledge.yaml",
     "spec/rules/project-doc-fields.yaml",
     "spec/prompts/README.md",
     "spec/prompts/triage/FAST_STATIC.md",
@@ -58,10 +59,12 @@ COMPILE_SCRIPTS = [
     "scripts/40_build_evidence_pack.py",
     "scripts/50_run_static_tools.py",
     "scripts/60_build_candidates.py",
+    "scripts/65_match_knowledge.py",
     "scripts/70_prepare_ai_triage.py",
     "scripts/72_build_context_pack.py",
     "scripts/74_prepare_deep_explore.py",
     "scripts/80_merge_results.py",
+    "scripts/85_collect_kb_suggestions.py",
     "scripts/90_render_delivery.py",
     "scripts/95_validate_run.py",
     "scripts/100_fast_static.py",
@@ -135,7 +138,7 @@ def main(argv: list[str]) -> int:
         smoke_errors, smoke_warnings = check_smoke()
         errors.extend(smoke_errors)
         warnings.extend(smoke_warnings)
-    result: dict[str, Any] = {"schema_version": "layout-verify-result-0.6.0", "status": "passed" if not errors else "failed", "error_count": len(errors), "warning_count": len(warnings), "errors": errors, "warnings": warnings}
+    result: dict[str, Any] = {"schema_version": "layout-verify-result-0.7.0", "status": "passed" if not errors else "failed", "error_count": len(errors), "warning_count": len(warnings), "errors": errors, "warnings": warnings}
     out = ROOT / "var" / "tmp" / "layout-verify"
     out.mkdir(parents=True, exist_ok=True)
     (out / "LAYOUT_VERIFY_RESULT.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

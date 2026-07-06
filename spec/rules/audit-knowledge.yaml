@@ -1,0 +1,83 @@
+schema_version: audit-knowledge-spec-0.1.0
+status: locked
+
+knowledge_base_path: local/registry/knowledge/AUDIT_KNOWLEDGE.yaml
+
+principles:
+  - Knowledge base is advisory and must not override current code facts, tool evidence, or human confirmation.
+  - AI and scripts may generate KB_UPDATE_SUGGESTIONS but must not automatically promote them into AUDIT_KNOWLEDGE.yaml.
+  - Accepted risk is project/business scoped and must not become a global false-positive rule.
+  - Knowledge hits are hints for triage, not final findings or final false-positive decisions.
+
+knowledge_sections:
+  risk_patterns:
+    label_zh: 风险模式
+    meaning_zh: 已知风险判断模式或风险链路特征。
+  false_positive_memories:
+    label_zh: 误报记忆
+    meaning_zh: 经人工确认的误报模式，用于下一轮降噪提示。
+  remediation_notes:
+    label_zh: 整改建议
+    meaning_zh: 对某类风险的常见整改建议或检查要点。
+  tool_notes:
+    label_zh: 工具经验
+    meaning_zh: 工具输出、规则库、缓存、适配和解析经验。
+  project_lessons:
+    label_zh: 项目经验
+    meaning_zh: 仅对特定项目或业务线有效的上下文经验。
+
+entry_fields:
+  required: [id, summary]
+  optional:
+    - title
+    - scope
+    - risk_parent
+    - risk_subtype
+    - risk_type
+    - source_tool
+    - tags
+    - keywords
+    - match
+    - confidence
+    - recommendation
+    - evidence_refs
+    - created_at
+    - updated_at
+    - expires_at
+    - notes
+
+suggestion_types:
+  false_positive_memory:
+    source_status: FP
+    requires_human_approval: true
+  risk_pattern:
+    source_status: FIND
+    requires_human_approval: true
+  remediation_note:
+    source_status: FIND
+    requires_human_approval: true
+  tool_note:
+    source_status: BLOCKED
+    requires_human_approval: true
+  project_lesson:
+    source_status: [FIND, REVIEW, RUNTIME, BLOCKED]
+    requires_human_approval: true
+
+matching_rules:
+  min_score_default: 2
+  score:
+    risk_parent_exact: 2
+    risk_subtype_exact: 3
+    risk_type_exact: 2
+    source_tool_exact: 2
+    tag_overlap_each: 1
+    keyword_hit_each: 1
+  max_hits_per_candidate: 5
+
+empty_knowledge_base_template:
+  schema_version: audit-knowledge-0.1.0
+  risk_patterns: []
+  false_positive_memories: []
+  remediation_notes: []
+  tool_notes: []
+  project_lessons: []

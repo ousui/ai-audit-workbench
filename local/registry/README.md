@@ -58,6 +58,23 @@ history: {}
 - `manual`：人工维护区，程序只初始化，不覆盖。
 - `history`：最近 run 摘要，程序保留最近 20 条。
 
+## 知识库文件
+
+知识库固定使用一个 YAML 文件：
+
+```text
+local/registry/knowledge/AUDIT_KNOWLEDGE.yaml
+```
+
+知识库只辅助审计，不覆盖当前事实。AI 和脚本只允许生成：
+
+```text
+var/runs/<project>/<run>/knowledge/KB_HITS.json
+var/runs/<project>/<run>/knowledge/KB_UPDATE_SUGGESTIONS.json
+```
+
+不得自动写入 `AUDIT_KNOWLEDGE.yaml`。所有知识库更新必须人工确认。
+
 ## 存储格式规则
 
 规则固定：

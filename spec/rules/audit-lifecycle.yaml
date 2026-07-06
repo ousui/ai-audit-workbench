@@ -1,0 +1,165 @@
+schema_version: audit-lifecycle-0.1.0
+status: locked
+
+principles:
+  - status expresses audit judgment, not business remediation progress.
+  - business_status expresses business-side feedback as observed by the audit workflow.
+  - verification_status expresses auditor/CHK verification result.
+  - tags express flexible attributes and must not replace lifecycle status.
+  - lifecycle_events record key decisions only; they are not a full workflow engine.
+
+status_dimensions:
+  audit_status:
+    label_zh: 审计判断状态
+    meaning_zh: 判断候选是否成立、是否误报、是否需要运行时验证或是否审计受阻。
+    current_stage: true
+  business_status:
+    label_zh: 业务反馈状态
+    meaning_zh: 表示业务方对已确认风险的反馈口径，不表示审计方复核结论。
+    current_stage: false
+  verification_status:
+    label_zh: 审计复核状态
+    meaning_zh: 表示 CHK 阶段审计方对整改闭环情况的复核结论。
+    current_stage: false
+
+allowed_candidate_initial_audit_status: [CAND, REVIEW, RUNTIME, BLOCKED]
+allowed_ai_triage_audit_status: [CAND, REVIEW, FIND, FP, RUNTIME, BLOCKED]
+allowed_merge_audit_status: [CAND, REVIEW, FIND, FP, RUNTIME, BLOCKED]
+report_included_audit_status: [FIND, REVIEW, RUNTIME, BLOCKED]
+
+business_status_default_for_find: PENDING
+verification_status_default_for_find: PENDING
+
+candidate_pool_rules:
+  must_not_create_find: true
+  must_not_create_fp: true
+  must_not_create_business_status: true
+  must_not_create_verification_status: true
+
+ai_triage_rules:
+  must_not_create_unreferenced_findings: true
+  must_not_set_business_status: true
+  must_not_set_verification_status: true
+  must_not_use_accepted_risk_as_audit_status: true
+
+audit_status:
+  CAND:
+    label_zh: 普通候选
+    meaning_zh: 工具、规则或流程证据发现可疑点，但证据不足，等待 AI 或人工判断。
+    allowed_stages: [candidate_pool, ai_triage, merge]
+    ai_can_set: true
+    report_include: false
+  REVIEW:
+    label_zh: 重点复核
+    meaning_zh: 信号较强或涉及业务逻辑、敏感配置、工程治理等，需要优先审阅，但尚未确认为问题。
+    allowed_stages: [candidate_pool, ai_triage, merge]
+    ai_can_set: true
+    report_include: true
+  FIND:
+    label_zh: 确认问题
+    meaning_zh: 证据链足够，风险或工程问题成立，默认进入整改清单。
+    allowed_stages: [ai_triage, merge, human_gate]
+    ai_can_set: true
+    report_include: true
+  FP:
+    label_zh: 误报
+    meaning_zh: 候选已被明确反证排除，不作为问题处理。
+    allowed_stages: [ai_triage, merge, human_gate]
+    ai_can_set: true
+    report_include: false
+  RUNTIME:
+    label_zh: 运行时验证
+    meaning_zh: 静态证据不足，需要运行环境、接口调用、权限上下文、配置或数据状态验证。
+    allowed_stages: [candidate_pool, ai_triage, merge]
+    ai_can_set: true
+    report_include: true
+  BLOCKED:
+    label_zh: 审计受阻
+    meaning_zh: 因构建、依赖、生成代码、工具适配、权限、环境等问题导致证据链无法继续。
+    allowed_stages: [candidate_pool, ai_triage, merge, chk]
+    ai_can_set: true
+    report_include: true
+
+business_status:
+  PENDING:
+    label_zh: 待业务处理
+    meaning_zh: 已发出整改或确认项，但尚未收到业务方有效反馈。
+    ai_can_set: false
+  IN_PROGRESS:
+    label_zh: 业务处理中
+    meaning_zh: 业务方反馈正在处理，但尚未声称完成。
+    ai_can_set: false
+  FIX_CLAIMED:
+    label_zh: 业务方声称已修复
+    meaning_zh: 业务方反馈已完成修复，等待审计方 CHK 复核。
+    ai_can_set: false
+  DEFERRED:
+    label_zh: 业务方反馈延期
+    meaning_zh: 业务方说明暂无法本期修复，并给出延期计划或原因。
+    ai_can_set: false
+  REQUIREMENT_TRACKING:
+    label_zh: 业务方反馈转需求
+    meaning_zh: 业务方说明需以跨团队、产品、基础设施或第三方依赖需求方式推进。
+    ai_can_set: false
+  NO_FIX_CLAIMED:
+    label_zh: 业务方声称无需修复
+    meaning_zh: 业务方说明无需修复或不计划修复，等待审计方确认理由是否成立。
+    ai_can_set: false
+
+verification_status:
+  PENDING:
+    label_zh: 待复核
+    meaning_zh: 初始待复核，或上轮未闭环，仍需继续 CHK。
+    ai_can_set: false
+  PASSED:
+    label_zh: 复核通过
+    meaning_zh: 审计方复核确认当前风险项已闭环。
+    ai_can_set: false
+  NOT_FIXED:
+    label_zh: 未修复
+    meaning_zh: 审计方复核确认当前风险项仍未修复。
+    ai_can_set: false
+  PARTIAL_FIXED:
+    label_zh: 部分修复
+    meaning_zh: 有整改动作，但未完全覆盖当前风险项。
+    ai_can_set: false
+  DEFERRED_CONFIRMED:
+    label_zh: 确认延期
+    meaning_zh: 审计方确认延期说明可接受，但风险尚未闭环。
+    ai_can_set: false
+  REQUIREMENT_CONFIRMED:
+    label_zh: 确认转需求
+    meaning_zh: 审计方确认需以独立需求方式继续推进。
+    ai_can_set: false
+  NO_FIX_CONFIRMED:
+    label_zh: 确认无需修复
+    meaning_zh: 经业务方说明并由审计方人工确认，本轮无需继续修复。
+    ai_can_set: false
+  BLOCKED:
+    label_zh: 无法复核
+    meaning_zh: 缺少代码、分支、权限、环境、证据或业务说明，审计方无法判断是否闭环。
+    ai_can_set: false
+
+resolution_reason:
+  ACCEPTED_RISK: {label_zh: 已接受风险, meaning_zh: 风险成立，但业务方或安全负责人明确接受风险。}
+  OUT_OF_SCOPE: {label_zh: 不在范围, meaning_zh: 当前项不属于本轮审计或整改范围。}
+  COMPENSATING_CONTROL: {label_zh: 补偿控制, meaning_zh: 存在经确认的补偿控制，当前无需直接修复。}
+  DUPLICATE: {label_zh: 重复项, meaning_zh: 已被其他风险项覆盖。}
+  BUSINESS_EXCEPTION: {label_zh: 业务例外, meaning_zh: 业务特殊约束导致不按常规整改。}
+  PRODUCT_REQUIREMENT: {label_zh: 产品需求, meaning_zh: 需通过产品或业务需求推进。}
+  THIRD_PARTY_DEPENDENCY: {label_zh: 第三方依赖, meaning_zh: 需第三方或外部系统配合。}
+  INFRA_DEPENDENCY: {label_zh: 基础设施依赖, meaning_zh: 需基础设施、网关、CI/CD 或运行环境能力支持。}
+
+lifecycle_event_type:
+  candidate_created: {label_zh: 候选创建, meaning_zh: 候选进入候选池。}
+  audit_decision: {label_zh: 审计判断, meaning_zh: AI 或审计方对候选作出审计判断。}
+  business_response: {label_zh: 业务反馈, meaning_zh: 业务方对风险项给出处理反馈。}
+  verification_decision: {label_zh: 复核判断, meaning_zh: CHK 阶段审计方给出复核结论。}
+  audit_reclassified: {label_zh: 审计重分类, meaning_zh: 审计方基于新证据修正原审计判断。}
+
+tag_categories:
+  source: [static_pattern, external_tool, ai_triage, human_gate, chk]
+  workflow: [needs_runtime, needs_manual_confirm, needs_business_owner, track_next_round, repeated_issue]
+  evidence_gap: [missing_context, missing_codegen, private_dependency, tool_blocked, needs_gateway_context, needs_runtime_env]
+  treatment_reason: [accepted_risk, cross_team_dependency, third_party_dependency, product_requirement, has_compensating_control]
+  knowledge: [knowledge_hit, knowledge_suggestion]

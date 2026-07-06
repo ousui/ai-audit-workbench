@@ -171,6 +171,45 @@ knowledge_summary
 candidate.knowledge_hits
 ```
 
+## File-based AI handoff
+
+默认 `audit-static` 仍使用 STUB triage 以保证端到端验证稳定。
+
+真实 AI triage 使用文件交接模式：
+
+```bash
+make audit-static \
+  PROJECT_PATH=/path/to/project \
+  PROJECT_CODE=AI_HANDOFF_TEST \
+  AI_TRIAGE_MODE=file \
+  DRY_RUN=true
+```
+
+该模式会在生成 `AI_TRIAGE_INPUT.json` 和 `AI_TRIAGE_HANDOFF.md` 后暂停，不进入 merge / delivery。
+
+人工或外部 AI 工具写入：
+
+```text
+var/runs/<project>/<run>/ai/AI_TRIAGE_RESULT.json
+```
+
+然后继续：
+
+```bash
+make ai-triage-validate RUN_ROOT=...
+make after-ai-triage RUN_ROOT=...
+```
+
+`after-ai-triage` 会执行：
+
+```text
+ai-triage-validate
+merge
+kb-suggestions
+delivery
+validate-run
+```
+
 ## Merge / Delivery
 
 Merge 结果中：
@@ -215,6 +254,8 @@ RUN_ROOT="$(ls -td var/runs/LIFECYCLE_TEST/FAST_STATIC_* | head -1)"
 cat "$RUN_ROOT/candidates/CANDIDATE_POOL.md"
 cat "$RUN_ROOT/knowledge/KB_HITS.md"
 cat "$RUN_ROOT/ai/AI_TRIAGE_INPUT.json" | head -120
+cat "$RUN_ROOT/ai/AI_TRIAGE_HANDOFF.md"
+cat "$RUN_ROOT/ai/AI_TRIAGE_VALIDATION_RESULT.md"
 cat "$RUN_ROOT/merge/MERGE_RESULT.md"
 cat "$RUN_ROOT/knowledge/KB_UPDATE_SUGGESTIONS.md"
 head -1 "$RUN_ROOT/delivery/AUDIT_TRACKING.csv"

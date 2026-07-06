@@ -20,62 +20,44 @@ EXCLUDE_DIRS = {
 
 FALLBACK_RECIPES = [
     {
-        "recipe_id": "SECRET_KEYWORD",
-        "title": "疑似敏感信息关键字",
-        "risk_type": "sensitive_information",
-        "severity_hint": "P1",
-        "confidence_hint": "medium",
+        "recipe_id": "SECRET_KEYWORD", "title": "疑似敏感信息关键字", "risk_type": "sensitive_information",
+        "risk_parent": "CRYPTOGRAPHY_SECRETS", "risk_subtype": "SECRET_HARDCODED",
+        "severity_hint": "P1", "confidence_hint": "medium",
         "include_exts": [".env", ".properties", ".yml", ".yaml", ".json", ".js", ".ts", ".java", ".go", ".php", ".py", ".dart", ".swift", ".kt"],
         "patterns": ["password", "passwd", "pwd", "secret", "api_key", "apikey", "access_key", "private_key", "token", "jwt"],
         "negative_evidence_required": ["是否只是变量名、注释、示例或测试数据", "是否包含真实值或可用凭据", "是否已通过环境变量、密钥管理或配置中心注入", "如为真实密钥，是否已轮换"],
     },
     {
-        "recipe_id": "ENV_FILE_TRACKED",
-        "title": "环境配置文件纳入审计范围",
-        "risk_type": "configuration_exposure",
-        "severity_hint": "P2",
-        "confidence_hint": "medium",
-        "filename_patterns": [r"^\.env(\..*)?$"],
-        "patterns": [".*"],
+        "recipe_id": "ENV_FILE_TRACKED", "title": "环境配置文件纳入审计范围", "risk_type": "configuration_exposure",
+        "risk_parent": "CONFIGURATION_EXPOSURE", "risk_subtype": "CONFIG_FILE_EXPOSURE",
+        "severity_hint": "P2", "confidence_hint": "medium", "filename_patterns": [r"^\.env(\..*)?$"], "patterns": [".*"],
         "negative_evidence_required": ["文件是否仅包含模板占位符", "文件是否为 example/sample 模板", "是否含真实环境地址、账号、密钥或 Token"],
     },
     {
-        "recipe_id": "SQL_DYNAMIC_CONSTRUCTION",
-        "title": "疑似动态 SQL 构造",
-        "risk_type": "sql_injection_candidate",
-        "severity_hint": "P1",
-        "confidence_hint": "medium",
-        "include_exts": [".go", ".java", ".xml", ".php", ".py", ".js", ".ts"],
+        "recipe_id": "SQL_DYNAMIC_CONSTRUCTION", "title": "疑似动态 SQL 构造", "risk_type": "sql_injection_candidate",
+        "risk_parent": "INPUT_INJECTION", "risk_subtype": "SQL_INJECTION",
+        "severity_hint": "P1", "confidence_hint": "medium", "include_exts": [".go", ".java", ".xml", ".php", ".py", ".js", ".ts"],
         "patterns": ["fmt.Sprintf", "whereRaw", "DB::raw", "createNativeQuery", "Statement", "${", "ORDER BY"],
         "negative_evidence_required": ["参数是否来自用户输入", "是否使用参数化查询", "动态字段是否有白名单", "是否仅为内部固定枚举"],
     },
     {
-        "recipe_id": "FILE_IO_SURFACE",
-        "title": "文件上传下载或路径处理入口",
-        "risk_type": "file_io_candidate",
-        "severity_hint": "P2",
-        "confidence_hint": "medium",
-        "include_exts": [".go", ".java", ".php", ".py", ".js", ".ts", ".dart", ".swift", ".kt"],
+        "recipe_id": "FILE_IO_SURFACE", "title": "文件上传下载或路径处理入口", "risk_type": "file_io_candidate",
+        "risk_parent": "FILE_OPERATION", "risk_subtype": "FILE_OPERATION_REVIEW",
+        "severity_hint": "P2", "confidence_hint": "medium", "include_exts": [".go", ".java", ".php", ".py", ".js", ".ts", ".dart", ".swift", ".kt"],
         "patterns": ["upload", "download", "MultipartFile", "FormFile", "FileOutputStream", "filepath.Join", "readFile", "writeFile"],
         "negative_evidence_required": ["是否校验扩展名白名单", "是否校验文件大小和类型", "是否规范化路径并校验最终目录前缀", "是否避免使用原始文件名作为存储名"],
     },
     {
-        "recipe_id": "FRONTEND_STORAGE",
-        "title": "前端或客户端本地存储线索",
-        "risk_type": "client_storage_candidate",
-        "severity_hint": "P2",
-        "confidence_hint": "medium",
-        "include_exts": [".js", ".ts", ".tsx", ".jsx", ".vue", ".dart", ".swift", ".kt", ".java"],
+        "recipe_id": "FRONTEND_STORAGE", "title": "前端或客户端本地存储线索", "risk_type": "client_storage_candidate",
+        "risk_parent": "FRONTEND_CLIENT_SECURITY", "risk_subtype": "SENSITIVE_DATA_IN_CLIENT_STORAGE",
+        "severity_hint": "P2", "confidence_hint": "medium", "include_exts": [".js", ".ts", ".tsx", ".jsx", ".vue", ".dart", ".swift", ".kt", ".java"],
         "patterns": ["localStorage", "sessionStorage", "document.cookie", "shared_preferences", "SharedPreferences", "UserDefaults"],
         "negative_evidence_required": ["是否存储 Token、密码、身份标识或敏感业务数据", "是否仅存储非敏感 UI 状态", "是否使用 HttpOnly Cookie、Keychain、Keystore 或安全存储替代"],
     },
     {
-        "recipe_id": "BUSINESS_HIGH_RISK_KEYWORD",
-        "title": "高风险业务模块关键字",
-        "risk_type": "business_logic_review_candidate",
-        "severity_hint": "P2",
-        "confidence_hint": "low",
-        "include_exts": [".go", ".java", ".php", ".py", ".js", ".ts", ".vue", ".dart", ".swift", ".kt"],
+        "recipe_id": "BUSINESS_HIGH_RISK_KEYWORD", "title": "高风险业务模块关键字", "risk_type": "business_logic_review_candidate",
+        "risk_parent": "BUSINESS_LOGIC", "risk_subtype": "BUSINESS_LOGIC_REVIEW",
+        "severity_hint": "P2", "confidence_hint": "low", "include_exts": [".go", ".java", ".php", ".py", ".js", ".ts", ".vue", ".dart", ".swift", ".kt"],
         "patterns": ["payment", "pay", "wallet", "withdraw", "refund", "coupon", "order", "callback", "notify", "webhook", "balance", "tenant"],
         "negative_evidence_required": ["是否涉及资金、订单、状态流转或多租户隔离", "是否已存在服务端归属校验", "是否已存在签名校验、幂等控制或状态机约束"],
     },
@@ -144,7 +126,7 @@ def load_recipes(path: Path) -> tuple[list[dict[str, Any]], list[str]]:
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     recipes = data.get("recipes") or []
     if not recipes:
-        return FALLBACK_RECIPES, ["No recipes found; using built-in fallback recipes."]
+        return FALLBACK_RECIPES, ["No recipes found; using fallback recipes."]
     return recipes, []
 
 
@@ -167,7 +149,6 @@ def scan_project(project: Path, recipes: list[dict[str, Any]], max_file_size: in
     recipe_counts = {recipe["recipe_id"]: {"matched_count": 0, "emitted_count": 0, "truncated_count": 0} for recipe in recipes}
     files_scanned = 0
     files_skipped = 0
-
     for path in project.rglob("*"):
         if not path.is_file() or excluded(path, project):
             continue
@@ -205,6 +186,8 @@ def scan_project(project: Path, recipes: list[dict[str, Any]], max_file_size: in
                     "recipe_id": rid,
                     "title": recipe.get("title"),
                     "risk_type": recipe.get("risk_type"),
+                    "risk_parent": recipe.get("risk_parent"),
+                    "risk_subtype": recipe.get("risk_subtype"),
                     "severity_hint": recipe.get("severity_hint", "P2"),
                     "confidence_hint": recipe.get("confidence_hint", "medium"),
                     "file_path": rel(path, project),
@@ -219,88 +202,70 @@ def scan_project(project: Path, recipes: list[dict[str, Any]], max_file_size: in
     return hits, {"files_scanned": files_scanned, "files_skipped": files_skipped, "recipe_summary": recipe_counts}
 
 
+def build_result(run_root: Path, recipes_path: Path, max_file_size: int, per_recipe_limit: int) -> dict[str, Any]:
+    project_profile = load_json(run_root / "meta" / "PROJECT_PROFILE.json")
+    project_root = Path(project_profile["project_path"]["resolved"])
+    recipes, warnings = load_recipes(recipes_path)
+    hits, summary = scan_project(project_root, recipes, max_file_size, per_recipe_limit)
+    return {
+        "schema_version": "tool-run-result-0.2.0",
+        "generated_at": now(),
+        "project": {"project_path": str(project_root), "project_name": project_profile.get("project_name")},
+        "recipe_source": str(recipes_path),
+        "summary": {**summary, "total_hits": len(hits), "recipe_count": len(recipes)},
+        "hits": hits,
+        "warnings": warnings,
+    }
+
+
 def render_md(result: dict[str, Any]) -> str:
-    lines = [
-        "# TOOL_RUN_RESULT", "",
-        "## Summary", "",
-        f"- Status: `{result['summary']['status']}`",
-        f"- Files scanned: {result['summary']['files_scanned']}",
-        f"- Files skipped: {result['summary']['files_skipped']}",
-        f"- Total hits: {result['summary']['total_hits']}", "",
-        "## Recipe summary", "",
-        "| Recipe | Matched | Emitted | Truncated |",
-        "|---|---:|---:|---:|",
-    ]
-    for rid, item in result.get("recipe_summary", {}).items():
-        lines.append(f"| `{rid}` | {item['matched_count']} | {item['emitted_count']} | {item['truncated_count']} |")
-    lines.extend(["", "## Hit preview", ""])
-    for hit in result.get("hits", [])[:80]:
-        lines.append(f"- `{hit['hit_id']}` `{hit['file_path']}:{hit['line_start']}` {hit['title']} — {hit['evidence_preview']}")
+    lines = ["# TOOL_RUN_RESULT", "", "## Summary", "", f"- Total hits: {result['summary']['total_hits']}", f"- Files scanned: {result['summary']['files_scanned']}", f"- Files skipped: {result['summary']['files_skipped']}", "", "## Hits", ""]
     if not result.get("hits"):
         lines.append("- None")
+    for hit in result.get("hits", [])[:200]:
+        lines.append(f"- `{hit['hit_id']}` `{hit.get('recipe_id')}` `{hit.get('risk_parent') or '-'}:{hit.get('risk_subtype') or '-'}` `{hit.get('file_path')}:{hit.get('line_start')}` {hit.get('title')} — {hit.get('evidence_preview')}")
     lines.append("")
+    if result.get("warnings"):
+        lines.extend(["## Warnings", ""])
+        for warning in result["warnings"]:
+            lines.append(f"- {warning}")
     return "\n".join(lines)
 
 
 def print_summary(result: dict[str, Any]) -> None:
-    print("tool-run summary")
-    print(f"  status: {result['summary']['status']}")
+    print("static-tool-run summary")
+    print(f"  total_hits: {result['summary']['total_hits']}")
     print(f"  files_scanned: {result['summary']['files_scanned']}")
     print(f"  files_skipped: {result['summary']['files_skipped']}")
-    print(f"  total_hits: {result['summary']['total_hits']}")
-    if result.get("notes"):
-        print("  notes:")
-        for note in result["notes"]:
-            print(f"    - {note}")
+    print(f"  recipe_count: {result['summary']['recipe_count']}")
+    if result.get("warnings"):
+        for warning in result["warnings"]:
+            print(f"  warning: {warning}")
 
 
 def main(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(description="Run deterministic static pattern scan.")
+    parser = argparse.ArgumentParser(description="Run deterministic static candidate discovery tools.")
     parser.add_argument("--run-root", required=True)
-    parser.add_argument("--recipes", default="rules/recipes.yaml")
-    parser.add_argument("--max-file-size", type=int, default=1024 * 1024)
-    parser.add_argument("--per-recipe-limit", type=int, default=300)
+    parser.add_argument("--recipes", default="spec/rules/candidate-recipes.yaml")
+    parser.add_argument("--max-file-size", type=int, default=512 * 1024)
+    parser.add_argument("--per-recipe-limit", type=int, default=120)
     parser.add_argument("--print-summary", action="store_true")
     args = parser.parse_args(argv)
-
     run_root = Path(args.run_root)
     if not run_root.is_absolute():
         run_root = (ROOT / run_root).resolve()
-    pack_path = run_root / "evidence" / "EVIDENCE_PACK.json"
-    if not pack_path.is_file():
-        print("[FAIL] EVIDENCE_PACK.json not found. Run make m4 first.", file=sys.stderr)
+    if not run_root.is_dir():
+        print(f"[FAIL] run root does not exist: {run_root}", file=sys.stderr)
         return 2
-    pack = load_json(pack_path)
-    project_path = Path(pack["project"]["project_path"]["resolved"])
-    if not project_path.is_dir():
-        print(f"[FAIL] project path unavailable: {project_path}", file=sys.stderr)
-        return 2
-
-    recipes_path = Path(args.recipes)
-    if not recipes_path.is_absolute():
-        recipes_path = (ROOT / recipes_path).resolve()
-    recipes, notes = load_recipes(recipes_path)
-    hits, stats = scan_project(project_path, recipes, args.max_file_size, args.per_recipe_limit)
-    out_dir = run_root / "evidence"
-    raw_dir = out_dir / "tool-outputs"
-    raw_dir.mkdir(parents=True, exist_ok=True)
-    write_json(raw_dir / "STATIC_PATTERN_HITS.json", hits)
-    result = {
-        "schema_version": "tool-run-result-0.1.0",
-        "generated_at": now(),
-        "run": pack.get("run"),
-        "mode": "deterministic_static_pattern_scan",
-        "summary": {"status": "completed", "files_scanned": stats["files_scanned"], "files_skipped": stats["files_skipped"], "total_hits": len(hits)},
-        "recipe_summary": stats["recipe_summary"],
-        "hits": hits,
-        "notes": notes,
-    }
-    write_json(out_dir / "TOOL_RUN_RESULT.json", result)
-    (out_dir / "TOOL_RUN_RESULT.md").write_text(render_md(result), encoding="utf-8")
+    result = build_result(run_root, (ROOT / args.recipes).resolve() if not Path(args.recipes).is_absolute() else Path(args.recipes), args.max_file_size, args.per_recipe_limit)
+    out = run_root / "evidence"
+    out.mkdir(parents=True, exist_ok=True)
+    write_json(out / "TOOL_RUN_RESULT.json", result)
+    (out / "TOOL_RUN_RESULT.md").write_text(render_md(result), encoding="utf-8")
     if args.print_summary:
         print_summary(result)
     else:
-        print(f"tool run result written to {out_dir}")
+        print(f"tool result written to {out}")
     return 0
 
 

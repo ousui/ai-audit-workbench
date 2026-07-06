@@ -57,7 +57,8 @@ def write_flow_record(run_root: Path, record: dict) -> None:
         f"- Run root: `{record['run_root']}`",
         f"- Network authorization: `{record['network_authorization']}`",
         f"- Dry run external tools: `{record['dry_run_external_tools']}`",
-        f"- Assisted change: `{record.get('assisted_change')}`", "",
+        f"- Assisted change: `{record.get('assisted_change')}`",
+        f"- AI triage mode: `{record.get('ai_triage_mode')}`", "",
         "## Steps", "",
         "| Step | Status | Exit code |",
         "|---|---|---:|",
@@ -70,6 +71,21 @@ def write_flow_record(run_root: Path, record: dict) -> None:
 def reset_if_needed(run_root: Path, flow_record: dict) -> None:
     code = run([sys.executable, "scripts/27_reset_assisted_change.py", "--run-root", str(run_root), "--print-summary"])
     flow_record["steps"].append({"name": "assisted-change-reset-on-failure", "status": "completed" if code == 0 else "failed", "exit_code": code})
+
+
+def execute_steps(steps: list[tuple[str, list[str]]], run_root: Path, flow_record: dict, assisted_enabled: bool) -> int:
+    for name, command in steps:
+        code = run(command)
+        flow_record["steps"].append({"name": name, "status": "completed" if code == 0 else "failed", "exit_code": code})
+        if code != 0:
+            flow_record["status"] = "failed"
+            if assisted_enabled and name != "assisted-change-reset":
+                reset_if_needed(run_root, flow_record)
+            write_flow_record(run_root, flow_record)
+            print(f"[FAIL] step failed: {name} exit={code}", file=sys.stderr)
+            print(f"Run root: {run_root}", file=sys.stderr)
+            return code
+    return 0
 
 
 def main(argv: list[str]) -> int:
@@ -86,8 +102,11 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--tool-timeout", type=int, default=900)
     parser.add_argument("--dry-run-external-tools", action="store_true")
     parser.add_argument("--assisted-change", default="none", choices=["none", "swag_init"])
-    parser.add_argument("--no-stub", action="store_true", help="Do not write stub AI triage result.")
+    parser.add_argument("--ai-triage-mode", default="stub", choices=["stub", "file"], help="stub writes AI_TRIAGE_RESULT.json; file stops after handoff for manual AI output.")
+    parser.add_argument("--no-stub", action="store_true", help="Compatibility alias for --ai-triage-mode=file.")
     args = parser.parse_args(argv)
+    if args.no_stub:
+        args.ai_triage_mode = "file"
 
     project_path = resolve_project_path(args.project_path)
     project_key = slugify(args.project_code or args.project_name or project_path.name)
@@ -129,36 +148,52 @@ def main(argv: list[str]) -> int:
         ("candidate-pool", [sys.executable, "scripts/60_build_candidates.py", "--run-root", str(run_root), "--print-summary"]),
         ("merge-external-candidates", [sys.executable, "scripts/35_merge_external_candidates.py", "--run-root", str(run_root), "--print-summary"]),
         ("knowledge-match", [sys.executable, "scripts/65_match_knowledge.py", "--run-root", str(run_root), "--print-summary"]),
-        ("ai-triage", [sys.executable, "scripts/70_prepare_ai_triage.py", "--run-root", str(run_root), "--print-summary"] + ([] if args.no_stub else ["--write-stub"])),
-        ("merge", [sys.executable, "scripts/80_merge_results.py", "--run-root", str(run_root), "--print-summary"]),
-        ("kb-suggestions", [sys.executable, "scripts/85_collect_kb_suggestions.py", "--run-root", str(run_root), "--print-summary"]),
-        ("delivery", [sys.executable, "scripts/90_render_delivery.py", "--run-root", str(run_root), "--print-summary"]),
-        ("validate", [sys.executable, "scripts/95_validate_run.py", "--run-root", str(run_root), "--print-summary"]),
     ])
-    if args.debug_level != "off":
-        steps.append(("debug-trace", [sys.executable, "scripts/110_collect_debug.py", "--run-root", str(run_root), "--debug-level", args.debug_level, "--print-summary"]))
 
     flow_record = {
-        "schema_version": "audit-static-flow-0.7.0",
+        "schema_version": "audit-static-flow-0.8.0",
         "status": "running",
         "run_root": str(run_root),
         "project_path": str(project_path),
         "network_authorization": args.network_authorization,
         "dry_run_external_tools": args.dry_run_external_tools,
         "assisted_change": args.assisted_change,
+        "ai_triage_mode": args.ai_triage_mode,
         "steps": [],
     }
 
-    for name, command in steps:
-        code = run(command)
-        flow_record["steps"].append({"name": name, "status": "completed" if code == 0 else "failed", "exit_code": code})
+    code = execute_steps(steps, run_root, flow_record, assisted_enabled)
+    if code != 0:
+        return code
+
+    if args.ai_triage_mode == "file":
+        code = execute_steps([("ai-triage-input", [sys.executable, "scripts/70_prepare_ai_triage.py", "--run-root", str(run_root), "--print-summary"])], run_root, flow_record, assisted_enabled)
         if code != 0:
-            flow_record["status"] = "failed"
-            if assisted_enabled and name != "assisted-change-reset":
-                reset_if_needed(run_root, flow_record)
-            write_flow_record(run_root, flow_record)
-            print(f"[FAIL] step failed: {name} exit={code}", file=sys.stderr)
-            print(f"Run root: {run_root}", file=sys.stderr)
+            return code
+        flow_record["status"] = "awaiting_ai_triage"
+        write_flow_record(run_root, flow_record)
+        print("")
+        print("AUDIT_STATIC flow paused for file-based AI triage.")
+        print(f"Run root: {run_root}")
+        print(f"Handoff: {run_root / 'ai' / 'AI_TRIAGE_HANDOFF.md'}")
+        print("Next: write ai/AI_TRIAGE_RESULT.json, then run:")
+        print(f"  make after-ai-triage RUN_ROOT={run_root}")
+        return 0
+
+    tail_steps: list[tuple[str, list[str]]] = [
+        ("ai-triage", [sys.executable, "scripts/70_prepare_ai_triage.py", "--run-root", str(run_root), "--print-summary", "--write-stub"]),
+        ("ai-triage-validate", [sys.executable, "scripts/76_validate_ai_triage.py", "--run-root", str(run_root), "--print-summary"]),
+        ("merge", [sys.executable, "scripts/80_merge_results.py", "--run-root", str(run_root), "--print-summary"]),
+        ("kb-suggestions", [sys.executable, "scripts/85_collect_kb_suggestions.py", "--run-root", str(run_root), "--print-summary"]),
+        ("delivery", [sys.executable, "scripts/90_render_delivery.py", "--run-root", str(run_root), "--print-summary"]),
+        ("validate", [sys.executable, "scripts/95_validate_run.py", "--run-root", str(run_root), "--print-summary"]),
+    ]
+    code = execute_steps(tail_steps, run_root, flow_record, assisted_enabled)
+    if code != 0:
+        return code
+    if args.debug_level != "off":
+        code = execute_steps([("debug-trace", [sys.executable, "scripts/110_collect_debug.py", "--run-root", str(run_root), "--debug-level", args.debug_level, "--print-summary"])], run_root, flow_record, assisted_enabled)
+        if code != 0:
             return code
 
     flow_record["status"] = "completed"

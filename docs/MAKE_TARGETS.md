@@ -12,6 +12,7 @@ make tool-adapter-check
 make tool-cache-check
 make audit-static PROJECT_PATH=... PROJECT_CODE=... DRY_RUN=true
 make audit-static PROJECT_PATH=... PROJECT_CODE=... ASSISTED_CHANGE=swag_init
+make audit-static PROJECT_PATH=... PROJECT_CODE=... AI_TRIAGE_MODE=file
 make benchmark
 ```
 
@@ -51,7 +52,10 @@ make tool-run RUN_ROOT=...
 make candidates RUN_ROOT=...
 make merge-external-candidates RUN_ROOT=...
 make knowledge-match RUN_ROOT=...
+make ai-triage-input RUN_ROOT=...
 make ai-triage RUN_ROOT=...
+make ai-triage-validate RUN_ROOT=...
+make after-ai-triage RUN_ROOT=...
 make merge RUN_ROOT=...
 make kb-suggestions RUN_ROOT=...
 make delivery RUN_ROOT=...
@@ -60,7 +64,24 @@ make debug-trace RUN_ROOT=... DEBUG_LEVEL=basic
 ```
 
 - `knowledge-match`：只读匹配 `local/registry/knowledge/AUDIT_KNOWLEDGE.yaml`，输出 `knowledge/KB_HITS.*`。
+- `ai-triage-input`：只生成 `AI_TRIAGE_INPUT.json` 和 `AI_TRIAGE_HANDOFF.md`，不生成 stub，供真实 AI file-based handoff 使用。
+- `ai-triage`：生成输入并写入 STUB 结果，仅用于流程验证。
+- `ai-triage-validate`：校验人工或 AI 写入的 `AI_TRIAGE_RESULT.json`。
+- `after-ai-triage`：在真实 AI 输出写入并校验通过后，继续执行 merge、kb-suggestions、delivery 和 validate-run。
 - `kb-suggestions`：从 AI triage / merge 结果收集知识库更新建议，输出 `knowledge/KB_UPDATE_SUGGESTIONS.*`，不自动写入本地知识库。
+
+## File-based AI triage
+
+```bash
+make audit-static \
+  PROJECT_PATH=... \
+  PROJECT_CODE=... \
+  AI_TRIAGE_MODE=file \
+  DRY_RUN=true
+
+# 写入 run_root/ai/AI_TRIAGE_RESULT.json 后继续：
+make after-ai-triage RUN_ROOT=...
+```
 
 ## 缓存更新入口
 

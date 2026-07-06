@@ -128,8 +128,10 @@ def main(argv: list[str]) -> int:
         ("built-in-tool-run", [sys.executable, "scripts/50_run_static_tools.py", "--run-root", str(run_root), "--recipes", recipes, "--print-summary"]),
         ("candidate-pool", [sys.executable, "scripts/60_build_candidates.py", "--run-root", str(run_root), "--print-summary"]),
         ("merge-external-candidates", [sys.executable, "scripts/35_merge_external_candidates.py", "--run-root", str(run_root), "--print-summary"]),
+        ("knowledge-match", [sys.executable, "scripts/65_match_knowledge.py", "--run-root", str(run_root), "--print-summary"]),
         ("ai-triage", [sys.executable, "scripts/70_prepare_ai_triage.py", "--run-root", str(run_root), "--print-summary"] + ([] if args.no_stub else ["--write-stub"])),
         ("merge", [sys.executable, "scripts/80_merge_results.py", "--run-root", str(run_root), "--print-summary"]),
+        ("kb-suggestions", [sys.executable, "scripts/85_collect_kb_suggestions.py", "--run-root", str(run_root), "--print-summary"]),
         ("delivery", [sys.executable, "scripts/90_render_delivery.py", "--run-root", str(run_root), "--print-summary"]),
         ("validate", [sys.executable, "scripts/95_validate_run.py", "--run-root", str(run_root), "--print-summary"]),
     ])
@@ -137,7 +139,7 @@ def main(argv: list[str]) -> int:
         steps.append(("debug-trace", [sys.executable, "scripts/110_collect_debug.py", "--run-root", str(run_root), "--debug-level", args.debug_level, "--print-summary"]))
 
     flow_record = {
-        "schema_version": "audit-static-flow-0.6.0",
+        "schema_version": "audit-static-flow-0.7.0",
         "status": "running",
         "run_root": str(run_root),
         "project_path": str(project_path),

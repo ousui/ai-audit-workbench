@@ -1,14 +1,15 @@
-schema_version: risk-taxonomy-0.2.0
-status: draft
+schema_version: risk-taxonomy-0.3.0
+status: locked
 
-priority_order: [P0, P1, P2, P3]
+priority_order: [P0, P1, P2, P3, P4]
 sort_order: [risk_level, risk_parent, risk_subtype, discovered_order]
 
 risk_levels:
-  P0: {label_zh: 紧急风险, label_en: Critical}
-  P1: {label_zh: 高危风险, label_en: High}
-  P2: {label_zh: 中危风险, label_en: Medium}
-  P3: {label_zh: 低危/治理风险, label_en: Low / Governance}
+  P0: {label_zh: 紧急风险, label_en: Critical, meaning_zh: 可导致重大资产损失、核心权限绕过、大规模数据泄露或紧急停服风险。}
+  P1: {label_zh: 高危风险, label_en: High, meaning_zh: 可导致重要业务越权、敏感数据泄露、资金风险或可利用注入。}
+  P2: {label_zh: 中危风险, label_en: Medium, meaning_zh: 影响局部业务安全、数据保护、配置暴露或需结合上下文确认的风险。}
+  P3: {label_zh: 低危/治理风险, label_en: Low / Governance, meaning_zh: 工程治理、安全覆盖率、日志监控、可维护性或低危安全问题。}
+  P4: {label_zh: 信息项, label_en: Informational, meaning_zh: 用于记录观察项、弱信号或低优先级改进建议，不默认进入整改清单。}
 
 risk_parents:
   ACCESS_CONTROL:
@@ -55,7 +56,7 @@ risk_parents:
     label_zh: 文件操作
     default_level: P1
     sort_index: 90
-    subtypes: {ARBITRARY_FILE_UPLOAD: 任意文件上传, PATH_TRAVERSAL: 路径穿越, ARBITRARY_FILE_READ: 任意文件读取}
+    subtypes: {ARBITRARY_FILE_UPLOAD: 任意文件上传, PATH_TRAVERSAL: 路径穿越, ARBITRARY_FILE_READ: 任意文件读取, FILE_OPERATION_REVIEW: 文件操作复核}
   NETWORK_SSRF_REQUEST:
     label_zh: 网络请求与 SSRF
     default_level: P1
@@ -65,7 +66,7 @@ risk_parents:
     label_zh: 业务逻辑
     default_level: P1
     sort_index: 110
-    subtypes: {PAYMENT_LOGIC_BYPASS: 支付逻辑绕过, ORDER_STATE_BYPASS: 订单状态绕过, WITHDRAWAL_RISK: 提现资金风险}
+    subtypes: {PAYMENT_LOGIC_BYPASS: 支付逻辑绕过, ORDER_STATE_BYPASS: 订单状态绕过, WITHDRAWAL_RISK: 提现资金风险, BUSINESS_LOGIC_REVIEW: 业务逻辑复核}
   CONCURRENCY_IDEMPOTENCY:
     label_zh: 并发与幂等
     default_level: P2
@@ -93,7 +94,7 @@ risk_parents:
     subtypes: {BUILD_NOT_REPRODUCIBLE: 构建不可复现, GENERATED_CODE_MISSING: 生成代码缺失, TOOLCHAIN_VERSION_MISMATCH: 工具链版本不匹配, SECURITY_TOOL_BLOCKED: 安全工具执行受阻, AUDIT_ASSISTED_CHANGE_REQUIRED: 需要审计辅助变更}
   CODE_QUALITY_TECH_DEBT:
     label_zh: 代码质量与技术债
-    default_level: P3
+    default_level: P4
     sort_index: 170
     subtypes: {DEAD_CODE: 死代码, COMPLEXITY_HIGH: 复杂度过高, ERROR_HANDLING_WEAK: 异常处理薄弱}
   ARCHITECTURE_RESILIENCE:

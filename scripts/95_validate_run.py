@@ -21,7 +21,9 @@ REQUIRED_FILES = [
     "candidates/CANDIDATE_POOL.json",
     "knowledge/KB_HITS.json",
     "ai/AI_TRIAGE_INPUT.json",
+    "ai/AI_TRIAGE_HANDOFF.md",
     "ai/AI_TRIAGE_RESULT.json",
+    "ai/AI_TRIAGE_VALIDATION_RESULT.json",
     "merge/MERGE_RESULT.json",
     "knowledge/KB_UPDATE_SUGGESTIONS.json",
     "delivery/AUDIT_REPORT.md",
@@ -66,6 +68,14 @@ def validate_candidate_pool(path: Path, errors: list[str], warnings: list[str], 
     if missing_taxonomy:
         warnings.append("candidate pool has candidates missing taxonomy: " + ", ".join([str(x) for x in missing_taxonomy[:20]]))
     checks.append({"check": "candidate_lifecycle_fields", "status": "ok" if not bad_status and not missing_events else "failed", "candidates": len(pool.get("candidates", []))})
+
+
+def validate_ai_triage_validation(path: Path, errors: list[str], checks: list[dict[str, Any]]) -> None:
+    result = load_json(path)
+    status = result.get("status")
+    checks.append({"check": "ai_triage_validation", "status": status, "errors": result.get("error_count"), "warnings": result.get("warning_count")})
+    if status != "passed":
+        errors.append(f"AI triage validation failed: {result.get('errors')}")
 
 
 def validate_knowledge(run_root: Path, errors: list[str], warnings: list[str], checks: list[dict[str, Any]]) -> None:
@@ -138,8 +148,11 @@ def validate(run_root: Path) -> dict[str, Any]:
     delivery_record_path = run_root / "delivery" / "DELIVERY_RECORD.json"
     candidate_path = run_root / "candidates" / "CANDIDATE_POOL.json"
     tracking_path = run_root / "delivery" / "AUDIT_TRACKING.csv"
+    ai_validation_path = run_root / "ai" / "AI_TRIAGE_VALIDATION_RESULT.json"
     if candidate_path.is_file():
         validate_candidate_pool(candidate_path, errors, warnings, checks)
+    if ai_validation_path.is_file():
+        validate_ai_triage_validation(ai_validation_path, errors, checks)
     validate_knowledge(run_root, errors, warnings, checks)
     if merge_path.is_file():
         validate_merge(merge_path, errors, warnings, checks)
@@ -149,7 +162,7 @@ def validate(run_root: Path) -> dict[str, Any]:
     if tracking_path.is_file():
         validate_tracking(tracking_path, errors, checks)
     status = "passed" if not errors else "failed"
-    return {"schema_version": "validation-result-0.3.0", "status": status, "error_count": len(errors), "warning_count": len(warnings), "errors": errors, "warnings": warnings, "checks": checks}
+    return {"schema_version": "validation-result-0.4.0", "status": status, "error_count": len(errors), "warning_count": len(warnings), "errors": errors, "warnings": warnings, "checks": checks}
 
 
 def render_md(result: dict[str, Any]) -> str:

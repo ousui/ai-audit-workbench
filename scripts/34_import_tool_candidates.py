@@ -11,15 +11,14 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 
-SEVERITY_MAP = {
-    "CRITICAL": "P0",
-    "HIGH": "P1",
-    "ERROR": "P1",
-    "MEDIUM": "P2",
-    "WARNING": "P2",
-    "LOW": "P3",
-    "INFO": "P3",
-    "INFORMATIONAL": "P3",
+SEVERITY_MAP = {"CRITICAL": "P0", "HIGH": "P1", "ERROR": "P1", "MEDIUM": "P2", "WARNING": "P2", "LOW": "P3", "INFO": "P4", "INFORMATIONAL": "P4"}
+
+TAXONOMY_BY_RISK_TYPE = {
+    "sensitive_information": ("CRYPTOGRAPHY_SECRETS", "SECRET_LEAKAGE"),
+    "dependency_vulnerability": ("VULNERABLE_DEPENDENCY", "KNOWN_CVE"),
+    "configuration_risk": ("CONFIGURATION_EXPOSURE", "INSECURE_DEFAULT"),
+    "static_analysis_finding": ("CODE_QUALITY_TECH_DEBT", "ERROR_HANDLING_WEAK"),
+    "tool_output_parse_error": ("BUILD_ENGINEERING_GOVERNANCE", "SECURITY_TOOL_BLOCKED"),
 }
 
 
@@ -55,12 +54,19 @@ def sev(value: str | None, default: str = "P2") -> str:
     return SEVERITY_MAP.get(str(value).upper(), default)
 
 
+def taxonomy_for(risk_type: str) -> tuple[str | None, str | None]:
+    return TAXONOMY_BY_RISK_TYPE.get(risk_type, (None, None))
+
+
 def base_candidate(tool_id: str, profile: str, risk_type: str, title: str, severity_hint: str, evidence: str, file_path: str | None = None, line_start: int | None = None) -> dict[str, Any]:
+    parent, subtype = taxonomy_for(risk_type)
     return {
         "source": "external_tool",
         "source_tool": tool_id,
         "source_profile": profile,
         "risk_type": risk_type,
+        "risk_parent": parent,
+        "risk_subtype": subtype,
         "title": title,
         "severity_hint": severity_hint,
         "confidence_hint": "medium",
@@ -68,11 +74,8 @@ def base_candidate(tool_id: str, profile: str, risk_type: str, title: str, sever
         "line_start": line_start,
         "line_end": line_start,
         "evidence": redact(evidence),
-        "negative_evidence_required": [
-            "确认工具输出是否适用于当前项目上下文",
-            "确认是否为测试、示例、模板或不可达代码",
-            "确认是否存在补偿性控制或安全配置",
-        ],
+        "negative_evidence_required": ["确认工具输出是否适用于当前项目上下文", "确认是否为测试、示例、模板或不可达代码", "确认是否存在补偿性控制或安全配置"],
+        "tags": ["external_tool", f"tool:{tool_id}", f"profile:{profile}"],
     }
 
 
@@ -87,10 +90,8 @@ def parse_semgrep(path: Path, tool_id: str, profile: str, project_root: Path) ->
         check_id = item.get("check_id") or "semgrep"
         message = extra.get("message") or check_id
         severity = extra.get("severity") or "WARNING"
-        candidates.append(base_candidate(
-            tool_id, profile, "static_analysis_finding", f"Semgrep: {check_id}", sev(severity),
-            f"{message}; check_id={check_id}", file_path, start.get("line"),
-        ))
+        risk_type = "sensitive_information" if "secret" in check_id.lower() else "static_analysis_finding"
+        candidates.append(base_candidate(tool_id, profile, risk_type, f"Semgrep: {check_id}", sev(severity), f"{message}; check_id={check_id}", file_path, start.get("line")))
     return candidates
 
 
@@ -102,10 +103,7 @@ def parse_gitleaks(path: Path, tool_id: str, profile: str, project_root: Path) -
         rule = item.get("RuleID") or item.get("Rule") or "gitleaks"
         file_path = rel_to_project(item.get("File") or "", project_root)
         line = item.get("StartLine") or item.get("Line")
-        candidates.append(base_candidate(
-            tool_id, profile, "sensitive_information", f"gitleaks: {rule}", "P1",
-            f"Rule={rule}; Description={item.get('Description') or ''}; Secret=<REDACTED>", file_path, line,
-        ))
+        candidates.append(base_candidate(tool_id, profile, "sensitive_information", f"gitleaks: {rule}", "P1", f"Rule={rule}; Description={item.get('Description') or ''}; Secret=<REDACTED>", file_path, line))
     return candidates
 
 
@@ -119,16 +117,12 @@ def parse_trivy(path: Path, tool_id: str, profile: str, project_root: Path) -> l
             pkg = vuln.get("PkgName") or "package"
             severity = vuln.get("Severity") or "UNKNOWN"
             evidence = f"{pkg} {vuln.get('InstalledVersion') or ''} affected by {vid}; fixed={vuln.get('FixedVersion') or '-'}; target={target}"
-            candidates.append(base_candidate(
-                tool_id, profile, "dependency_vulnerability", f"{vid} in {pkg}", sev(severity), evidence, target or None, None,
-            ))
+            candidates.append(base_candidate(tool_id, profile, "dependency_vulnerability", f"{vid} in {pkg}", sev(severity), evidence, target or None, None))
         for misconf in result.get("Misconfigurations") or []:
             mid = misconf.get("ID") or "misconfiguration"
             title = misconf.get("Title") or mid
             severity = misconf.get("Severity") or "UNKNOWN"
-            candidates.append(base_candidate(
-                tool_id, profile, "configuration_risk", f"{mid}: {title}", sev(severity), misconf.get("Message") or title, target or None, None,
-            ))
+            candidates.append(base_candidate(tool_id, profile, "configuration_risk", f"{mid}: {title}", sev(severity), misconf.get("Message") or title, target or None, None))
     return candidates
 
 
@@ -141,10 +135,7 @@ def parse_npm_audit(path: Path, tool_id: str, profile: str, project_root: Path) 
         via = item.get("via") or []
         via_summary = []
         for entry in via[:5] if isinstance(via, list) else []:
-            if isinstance(entry, dict):
-                via_summary.append(entry.get("title") or entry.get("source") or "advisory")
-            else:
-                via_summary.append(str(entry))
+            via_summary.append(entry.get("title") or entry.get("source") or "advisory" if isinstance(entry, dict) else str(entry))
         evidence = f"package={name}; severity={severity}; via={'; '.join(via_summary)}"
         candidates.append(base_candidate(tool_id, profile, "dependency_vulnerability", f"npm audit: {name}", sev(severity), evidence, "package.json", None))
     return candidates
@@ -217,7 +208,7 @@ def unique_candidates(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
         result.append(item)
     for idx, item in enumerate(result, start=1):
         item["candidate_id"] = f"EXT-CAND-{idx:05d}"
-        item["status"] = "candidate"
+        item["status"] = "CAND"
     return result
 
 
@@ -227,7 +218,6 @@ def import_candidates(run_root: Path) -> dict[str, Any]:
     project_root = Path(project["project_path"]["resolved"])
     items: list[dict[str, Any]] = []
     parsed_files = []
-
     for item in execution.get("items") or []:
         tool_id = item.get("tool_id") or "unknown"
         profile = item.get("profile") or "unknown"
@@ -241,35 +231,18 @@ def import_candidates(run_root: Path) -> dict[str, Any]:
                 parsed = parse_file(path, tool_id, profile, project_root)
                 items.extend(parsed)
                 parsed_files.append({"tool_id": tool_id, "profile": profile, "path": str(path), "candidate_count": len(parsed)})
-
     candidates = unique_candidates(items)
-    return {
-        "schema_version": "external-tool-candidates-0.1.0",
-        "run": execution.get("run"),
-        "summary": {
-            "candidate_count": len(candidates),
-            "parsed_files": len(parsed_files),
-            "source_tools": sorted({c.get("source_tool") for c in candidates if c.get("source_tool")}),
-        },
-        "parsed_files": parsed_files,
-        "candidates": candidates,
-        "notes": ["External tool candidates are not final findings. They must enter AI triage / merge before delivery."],
-    }
+    return {"schema_version": "external-tool-candidates-0.2.0", "run": execution.get("run"), "summary": {"candidate_count": len(candidates), "parsed_files": len(parsed_files), "source_tools": sorted({c.get("source_tool") for c in candidates if c.get("source_tool")})}, "parsed_files": parsed_files, "candidates": candidates, "notes": ["External tool candidates are not final findings. They must enter AI triage / merge before delivery."]}
 
 
 def render_md(result: dict[str, Any]) -> str:
-    lines = [
-        "# EXT_TOOL_CANDIDATES", "",
-        f"- Candidate count: {result['summary']['candidate_count']}",
-        f"- Parsed files: {result['summary']['parsed_files']}",
-        f"- Source tools: {', '.join(result['summary']['source_tools']) or '-'}", "",
-        "## Candidates", "",
-    ]
+    lines = ["# EXT_TOOL_CANDIDATES", "", f"- Candidate count: {result['summary']['candidate_count']}", f"- Parsed files: {result['summary']['parsed_files']}", f"- Source tools: {', '.join(result['summary']['source_tools']) or '-'}", "", "## Candidates", ""]
     for item in result.get("candidates", [])[:200]:
         loc = item.get("file_path") or "-"
         if item.get("line_start"):
             loc += f":{item.get('line_start')}"
-        lines.append(f"- `{item['candidate_id']}` `{item.get('severity_hint')}` `{item.get('source_tool')}/{item.get('source_profile')}` {item.get('title')} — {loc}")
+        taxonomy = f"{item.get('risk_parent') or '-'}:{item.get('risk_subtype') or '-'}"
+        lines.append(f"- `{item['candidate_id']}` `{item.get('severity_hint')}` `{taxonomy}` `{item.get('source_tool')}/{item.get('source_profile')}` {item.get('title')} — {loc}")
     if not result.get("candidates"):
         lines.append("- None")
     return "\n".join(lines) + "\n"
@@ -287,14 +260,12 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--run-root", required=True)
     parser.add_argument("--print-summary", action="store_true")
     args = parser.parse_args(argv)
-
     run_root = Path(args.run_root)
     if not run_root.is_absolute():
         run_root = (ROOT / run_root).resolve()
     if not (run_root / "evidence" / "tool-execution" / "TOOL_EXECUTION_RESULT.json").is_file():
         print("[FAIL] TOOL_EXECUTION_RESULT.json not found. Run ext-tool-run first.", file=sys.stderr)
         return 2
-
     result = import_candidates(run_root)
     out = run_root / "candidates"
     write_json(out / "EXT_TOOL_CANDIDATES.json", result)

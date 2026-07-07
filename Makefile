@@ -11,6 +11,7 @@ RECIPES ?= spec/rules/candidate-recipes.yaml
 KNOWLEDGE_BASE ?= local/registry/knowledge/AUDIT_KNOWLEDGE.yaml
 AI_TRIAGE_MODE ?= stub
 AI_JURY_PROFILE ?= balanced
+DELIVERY_PROFILE ?= spec/delivery/delivery-profile.default.yaml
 
 PROJECT_PATH ?=
 PROJECT_CODE ?=
@@ -40,6 +41,7 @@ help:
 	@echo "  make env-summary"
 	@echo "  make tool-adapter-check"
 	@echo "  make tool-cache-check"
+	@echo "  make delivery-profile-validate"
 	@echo "  make audit-static PROJECT_PATH=benchmarks/fixtures/static-demo PROJECT_CODE=DEMO DRY_RUN=true"
 	@echo "  make audit-static PROJECT_PATH=... PROJECT_CODE=... ASSISTED_CHANGE=swag_init"
 	@echo "  make audit-static PROJECT_PATH=... PROJECT_CODE=... AI_TRIAGE_MODE=file"
@@ -82,7 +84,7 @@ help:
 	@echo "  make after-ai-triage RUN_ROOT=..."
 	@echo "  make merge RUN_ROOT=..."
 	@echo "  make kb-suggestions RUN_ROOT=..."
-	@echo "  make delivery RUN_ROOT=..."
+	@echo "  make delivery RUN_ROOT=... DELIVERY_PROFILE=..."
 	@echo "  make validate-run RUN_ROOT=..."
 	@echo "  make debug-trace RUN_ROOT=... DEBUG_LEVEL=basic"
 	@echo ""
@@ -133,6 +135,10 @@ tool-cache-update:
 	else \
 		$(PYTHON) scripts/38_update_tool_cache.py --tool "$(TOOL_CACHE_TOOL)" --timeout "$(TOOL_TIMEOUT)" --print-summary; \
 	fi
+
+.PHONY: delivery-profile-validate
+delivery-profile-validate:
+	$(PYTHON) scripts/89_validate_delivery_profile.py --profile "$(DELIVERY_PROFILE)" --print-summary
 
 .PHONY: smoke
 smoke:
@@ -311,7 +317,7 @@ m8: py-compile merge kb-suggestions
 .PHONY: delivery
 delivery:
 	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required"; exit 2)
-	$(PYTHON) scripts/90_render_delivery.py --run-root "$(RUN_ROOT)" --print-summary
+	$(PYTHON) scripts/90_render_delivery.py --run-root "$(RUN_ROOT)" --delivery-profile "$(DELIVERY_PROFILE)" --print-summary
 
 .PHONY: m9
 m9: py-compile delivery
@@ -414,7 +420,7 @@ clean-env:
 
 .PHONY: py-compile
 py-compile:
-	$(PYTHON) -m py_compile scripts/00_env_check.py scripts/05_check_deps.py scripts/10_run_init.py scripts/20_build_audit_map.py scripts/25_run_preflight.py scripts/26_run_assisted_change.py scripts/27_reset_assisted_change.py scripts/28_build_project_doc_profile.py scripts/30_build_tool_plan.py scripts/31_stack_env_check.py scripts/32_build_tool_execution_plan.py scripts/33_run_tool_execution_plan.py scripts/34_import_tool_candidates.py scripts/35_merge_external_candidates.py scripts/36_check_tool_adapters.py scripts/37_check_tool_cache.py scripts/38_update_tool_cache.py scripts/40_build_evidence_pack.py scripts/50_run_static_tools.py scripts/60_build_candidates.py scripts/65_match_knowledge.py scripts/70_prepare_ai_triage.py scripts/72_build_context_pack.py scripts/74_prepare_deep_explore.py scripts/76_validate_ai_triage.py scripts/77_review_ai_triage_quality.py scripts/78_build_ai_jury_prompts.py scripts/78_check_ai_jury_status.py scripts/79_merge_ai_jury_results.py scripts/79_finalize_ai_jury_result.py scripts/80_merge_results.py scripts/85_collect_kb_suggestions.py scripts/90_render_delivery.py scripts/95_validate_run.py scripts/100_fast_static.py scripts/110_collect_debug.py scripts/120_run_benchmark.py scripts/130_audit_static.py scripts/190_verify_layout.py scripts/99_smoke_check.py
+	$(PYTHON) -m py_compile scripts/00_env_check.py scripts/05_check_deps.py scripts/10_run_init.py scripts/20_build_audit_map.py scripts/25_run_preflight.py scripts/26_run_assisted_change.py scripts/27_reset_assisted_change.py scripts/28_build_project_doc_profile.py scripts/30_build_tool_plan.py scripts/31_stack_env_check.py scripts/32_build_tool_execution_plan.py scripts/33_run_tool_execution_plan.py scripts/34_import_tool_candidates.py scripts/35_merge_external_candidates.py scripts/36_check_tool_adapters.py scripts/37_check_tool_cache.py scripts/38_update_tool_cache.py scripts/40_build_evidence_pack.py scripts/50_run_static_tools.py scripts/60_build_candidates.py scripts/65_match_knowledge.py scripts/70_prepare_ai_triage.py scripts/72_build_context_pack.py scripts/74_prepare_deep_explore.py scripts/76_validate_ai_triage.py scripts/77_review_ai_triage_quality.py scripts/78_build_ai_jury_prompts.py scripts/78_check_ai_jury_status.py scripts/79_merge_ai_jury_results.py scripts/79_finalize_ai_jury_result.py scripts/80_merge_results.py scripts/85_collect_kb_suggestions.py scripts/89_validate_delivery_profile.py scripts/90_render_delivery.py scripts/95_validate_run.py scripts/100_fast_static.py scripts/110_collect_debug.py scripts/120_run_benchmark.py scripts/130_audit_static.py scripts/190_verify_layout.py scripts/99_smoke_check.py
 
 .PHONY: status
 status:

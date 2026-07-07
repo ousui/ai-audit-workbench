@@ -77,6 +77,7 @@ make debug-trace RUN_ROOT=... DEBUG_LEVEL=basic
 - `ai-jury-status`：检查 reviewer 结果是否完成、JSON 是否有效、candidate_id 是否重复或未知，并提示下一步复制哪个 prompt 或继续 merge。
 - `ai-jury-merge`：读取 `ai/reviewers/*/AI_TRIAGE_RESULT.json`，生成 consensus、disagreement 和 adjudication prompt，不写最终 `AI_TRIAGE_RESULT.json`。
 - `ai-jury-finalize`：读取 consensus 和可选 adjudication 结果，生成最终 `ai/AI_TRIAGE_RESULT.json`，供后续 validate / quality / merge 使用。
+- `delivery`：生成交付报告、业务整改表和审计侧质量摘要；`AUDIT_TRACKING.csv` 只包含 FIND/REVIEW/RUNTIME/BLOCKED，FP/CAND 写入 `AUDIT_QUALITY_ITEMS.csv`。
 - `after-ai-triage`：在真实 AI 输出写入并通过 schema 与 quality gate 后，继续执行 merge、kb-suggestions、delivery 和 validate-run。
 - `kb-suggestions`：从 AI triage / merge 结果收集知识库更新建议，输出 `knowledge/KB_UPDATE_SUGGESTIONS.*`，不自动写入本地知识库。
 
@@ -113,6 +114,20 @@ ai-triage-quality
 ```
 
 如果质量门禁失败，不会继续进入 merge / delivery。
+
+## Delivery outputs
+
+`make delivery RUN_ROOT=...` 输出：
+
+```text
+delivery/AUDIT_REPORT.md
+delivery/AUDIT_REPORT.html
+delivery/AUDIT_TRACKING.csv              # 业务整改/确认表，只含 FIND/REVIEW/RUNTIME/BLOCKED
+delivery/AUDIT_QUALITY_ITEMS.csv         # 审计侧质量表，只含 FP/CAND
+delivery/AUDIT_QUALITY_SUMMARY.json
+delivery/AUDIT_QUALITY_SUMMARY.md
+delivery/DELIVERY_RECORD.json
+```
 
 ## 缓存更新入口
 

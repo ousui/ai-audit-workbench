@@ -12,6 +12,7 @@
 spec/
   env/        工具矩阵、安装建议、环境检测相关规范
   rules/      候选生成规则、风险分类、项目字段字典、工具门禁规则
+  delivery/   交付字段、统计表、报告章节配置规范
   ai/         AI Jury、AI Extension、AI CLI/API adapter 预留规范
   schemas/    JSON Schema、AI 输出协议、流程产物协议
   prompts/    AI Agent 在流程中使用的提示词模板

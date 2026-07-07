@@ -15,6 +15,10 @@ REQUIRED_FILES = [
     "README.md",
     "conf/README.md",
     "docs/README.md",
+    "docs/ROADMAP.md",
+    "docs/AI_JURY_AND_QUALITY_GATE.md",
+    "docs/AI_EXTENSION_LAYER.md",
+    "docs/THREAT_MODEL_AND_COVERAGE.md",
     "benchmarks/README.md",
     "scripts/README.md",
     "templates/README.md",
@@ -30,6 +34,9 @@ REQUIRED_FILES = [
     "spec/rules/audit-lifecycle.yaml",
     "spec/rules/audit-knowledge.yaml",
     "spec/rules/project-doc-fields.yaml",
+    "spec/ai/README.md",
+    "spec/ai/jury-profiles.yaml",
+    "spec/ai/extensions.yaml",
     "spec/prompts/README.md",
     "spec/prompts/triage/FAST_STATIC.md",
     "spec/schemas/README.md",
@@ -139,7 +146,7 @@ def main(argv: list[str]) -> int:
         smoke_errors, smoke_warnings = check_smoke()
         errors.extend(smoke_errors)
         warnings.extend(smoke_warnings)
-    result: dict[str, Any] = {"schema_version": "layout-verify-result-0.8.0", "status": "passed" if not errors else "failed", "error_count": len(errors), "warning_count": len(warnings), "errors": errors, "warnings": warnings}
+    result: dict[str, Any] = {"schema_version": "layout-verify-result-0.9.0", "status": "passed" if not errors else "failed", "error_count": len(errors), "warning_count": len(warnings), "errors": errors, "warnings": warnings}
     out = ROOT / "var" / "tmp" / "layout-verify"
     out.mkdir(parents=True, exist_ok=True)
     (out / "LAYOUT_VERIFY_RESULT.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

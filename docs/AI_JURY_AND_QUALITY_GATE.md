@@ -89,6 +89,13 @@ DATA_PROTECTION_PRIVACY
 
 Quality Gate 不替代人工判断，但可以拦截明显低质量 AI 输出。
 
+当前已实现：
+
+```text
+scripts/77_review_ai_triage_quality.py
+make ai-triage-quality RUN_ROOT=...
+```
+
 检查项：
 
 ```text
@@ -99,20 +106,23 @@ AI 输出高度复刻输入初始 status
 FIND 缺 evidence / risk_chain / impact / recommendation / negative_evidence_checked
 FP 缺明确反证
 RUNTIME 缺 missing_evidence 或 questions_for_human
-高风险 FP 未进入 QC
+高风险 FP 标记为 FP QC item
 ```
 
-建议产物：
+产物：
 
 ```text
 ai/AI_TRIAGE_QUALITY_RESULT.json
 ai/AI_TRIAGE_QUALITY_RESULT.md
 ```
 
+`after-ai-triage` 会先执行 schema validation 和 quality gate；如果 quality gate 失败，不进入 merge / delivery。
+
+STUB triage 仅用于流程验证，quality gate 会允许通过但写入 warning。
+
 ## 后续脚本计划
 
 ```text
-scripts/77_review_ai_triage_quality.py
 scripts/78_build_ai_jury_prompts.py
 scripts/79_merge_ai_jury_results.py
 ```
@@ -120,9 +130,6 @@ scripts/79_merge_ai_jury_results.py
 Makefile 计划：
 
 ```bash
-make ai-triage-quality RUN_ROOT=...
 make ai-jury-prompts RUN_ROOT=... AI_JURY_PROFILE=balanced
 make ai-jury-merge RUN_ROOT=...
 ```
-
-当前阶段先固定 spec 和设计文档，后续再逐步实现脚本。

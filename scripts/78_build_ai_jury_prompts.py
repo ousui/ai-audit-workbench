@@ -17,31 +17,47 @@ JURY_SPEC = ROOT / "spec" / "ai" / "jury-profiles.yaml"
 
 ROLE_GUIDANCE = {
     "balanced_auditor": [
-        "平衡判断 FIND / FP / REVIEW / RUNTIME，不要过度激进，也不要把所有候选都留给人工。",
-        "只有仓库证据足以证明风险链路时才判 FIND。",
-        "有明确反证时判 FP；证据不足但有安全意义时用 REVIEW 或 RUNTIME。",
+        "平衡判断 FIND / FP / REVIEW / RUNTIME / CAND，不要过度激进，也不要把 REVIEW 当默认兜底。",
+        "明显成立的安全问题要判 FIND；明显误报要判 FP；缺运行时输入或环境证据时才判 RUNTIME。",
+        "每个判断都要写出 evidence_for、evidence_against、proof_gap 中的关键点，分别放入 evidence / negative_evidence_checked / missing_evidence / reason。",
     ],
     "risk_hunter": [
-        "优先避免漏报，重点关注密钥、鉴权、注入、文件、资金和业务链路。",
+        "优先避免漏报，重点关注密钥、鉴权、注入、文件、资金、权限和业务链路。",
         "对高危 risk_parent 的 CAND/REVIEW 要尽量扩大上下文理解，寻找 source、sink、trust boundary 和 impact。",
-        "不要因为缺运行时验证就直接 FP；如果静态证据不足但风险可能真实存在，使用 REVIEW 或 RUNTIME。",
+        "明显硬编码凭据、可达的危险 sink、缺失鉴权的敏感操作，不能因为保守而降成 REVIEW。",
     ],
     "fp_skeptic": [
-        "优先寻找反证，压制日志、变量名、配置 key、非 sink、不可达路径、重复使用点等误报。",
+        "优先寻找反证，压制日志、变量名、配置 key、非 sink、不可达路径、测试代码、代码生成片段等误报。",
         "判 FP 时必须写清楚 counterevidence，不能只写“证据不足”。",
-        "对于高危 FP，即使你认为是误报，也要明确记录反证和剩余 proof gap。",
+        "如果无法形成明确反证，不能为了压误报而 FP，应改为 REVIEW 或 RUNTIME。",
     ],
     "chain_verifier": [
-        "重点分析入口点、source、sink、信任边界、可达性和 proof gap。",
+        "重点分析入口点、source、sink、信任边界、可达性、控制点和 proof gap。",
         "优先补齐 risk_chain、negative_evidence_checked、missing_evidence 和 questions_for_human。",
-        "如果需要调用方、环境变量、运行配置或业务权限边界才能判断，优先 REVIEW 或 RUNTIME。",
+        "如果需要调用方、环境变量、运行配置或业务权限边界才能判断，优先 RUNTIME 或 REVIEW，而不是 CAND。",
     ],
     "adjudicator": [
         "只处理分歧项、高风险 FP、关键 FIND 和质量门禁要求复核的条目。",
-        "不要重新全量审计；聚焦争议点和证据质量。",
-        "最终裁决必须说明为什么接受或推翻 reviewer 判断。",
+        "不要重新全量审计；聚焦争议点、证据质量和为什么接受或推翻 reviewer 判断。",
+        "禁止把 high-risk low-action decision 简单映射为 CAND；高风险且证据不足时一般应为 REVIEW 或 RUNTIME。",
     ],
 }
+
+DECISION_CALIBRATION = [
+    "FIND：当前静态证据足以证明风险成立，或至少可证明风险链路核心 source/sink/control/impact 成立。",
+    "FP：存在明确反证，例如只是日志/变量名/非 DB SQL sink/不可达路径/测试样例/无外部输入/非敏感值。",
+    "RUNTIME：静态证据显示风险可能存在，但必须依赖运行时配置、环境变量、权限边界、真实请求链路或调用方才能证明。",
+    "REVIEW：需要人工业务上下文或跨模块设计判断；不能把 REVIEW 当作所有不确定项的默认出口。",
+    "CAND：保留为低价值候选或证据极弱的待观察项；高风险项不要轻易落 CAND。",
+    "BLOCKED：缺少关键文件、生成代码、私有依赖或工具执行受阻，导致无法完成判断。",
+]
+
+CATEGORY_CALIBRATION = [
+    "硬编码密钥/Token/AK/SK/Secret：若不是测试假值、文档样例或明确无效值，优先 FIND；若是假值需 FP 并写反证。",
+    "SQL/命令/模板注入：必须区分真实 sink 与日志、字符串常量、URL/Header、Redis/ES/Excel、代码生成文本。真实 sink 可达时 FIND；没有 sink 时 FP。",
+    "文件路径/上传下载/解压：若缺少外部输入来源或路径规范化证据，优先 REVIEW/RUNTIME；已有可控 source 到危险 sink 时 FIND。",
+    "鉴权/权限/业务逻辑：若敏感操作缺明显鉴权或权限边界，优先 REVIEW/FIND；需要业务规则确认时 REVIEW。",
+]
 
 
 def now() -> str:
@@ -107,6 +123,8 @@ def reviewer_prompt(run_root: Path, triage_input: dict[str, Any], profile_name: 
         f"- Reasoning level: `{reasoning}`",
         f"- Jury profile: `{profile_name}`",
         f"- Candidate count: {candidate_count}", "",
+        "## Model expectation", "",
+        "本提示词面向高推理模型或强代码 Agent。请利用项目上下文做真实审计判断，不要用 REVIEW/CAND 批量兜底。", "",
         "## Independence rule", "",
         "你是独立 reviewer。你必须独立判断，不得读取其他 reviewer 的结果，不得读取 `ai/reviewers/*/AI_TRIAGE_RESULT.json`，也不得参考 consensus/adjudication 结果。", "",
         "## Files to read", "",
@@ -127,8 +145,21 @@ def reviewer_prompt(run_root: Path, triage_input: dict[str, Any], profile_name: 
     ]
     for item in guidance:
         lines.append(f"- {item}")
+    lines.extend(["", "## Decision calibration", ""])
+    for item in DECISION_CALIBRATION:
+        lines.append(f"- {item}")
+    lines.extend(["", "## Category calibration", ""])
+    for item in CATEGORY_CALIBRATION:
+        lines.append(f"- {item}")
     lines.extend([
-        "", "## Hard rules", "",
+        "", "## Evidence requirements", "",
+        "每个非 CAND 判断都要尽量补齐：",
+        "- `evidence`：支持当前 decision 的正向证据，包含关键文件、行号、代码片段或工具证据摘要。",
+        "- `risk_chain`：source -> trust boundary/control -> sink -> impact；没有链路时写明缺口。",
+        "- `negative_evidence_checked`：已经排除的误报可能，例如测试代码、日志、非 sink、不可达、固定假值等。",
+        "- `missing_evidence`：还缺什么证据；RUNTIME/REVIEW 必须写清楚。",
+        "- `reason`：为什么是这个 decision，而不是 FIND/FP/RUNTIME/REVIEW/CAND 中的其他状态。", "",
+        "## Hard rules", "",
         "1. 只能使用 AI_TRIAGE_INPUT.json 中已有 candidate_id。",
         "2. 不得新增没有 candidate_id 的问题。",
         "3. decision 只能是 FIND / REVIEW / RUNTIME / CAND / FP / BLOCKED。",
@@ -136,14 +167,16 @@ def reviewer_prompt(run_root: Path, triage_input: dict[str, Any], profile_name: 
         "5. FIND 必须有 evidence、risk_chain、impact、recommendation、negative_evidence_checked、reason。",
         "6. FP 必须写清楚明确反证，不能只写“证据不足”。",
         "7. RUNTIME 必须说明需要什么运行时证据。",
-        "8. knowledge_hits 只能作为辅助参考，不能覆盖当前代码事实和工具证据。",
-        "9. 如果证据不足，不要强行 FIND；优先 REVIEW / RUNTIME / CAND。",
-        "10. 输出必须是合法 JSON，不要在 JSON 外写解释。", "",
+        "8. REVIEW 必须说明需要什么人工上下文，不能作为默认兜底。",
+        "9. CAND 只用于低价值或证据极弱候选；高风险项不要轻易判 CAND。",
+        "10. knowledge_hits 只能作为辅助参考，不能覆盖当前代码事实和工具证据。",
+        "11. 如果最终 FIND/FP/RUNTIME 全为 0，请在 notes 中解释为什么没有任何可成立、可排除或需要运行时验证的项。",
+        "12. 输出必须是合法 JSON，不要在 JSON 外写解释。", "",
         "## Expected JSON skeleton", "",
         "```json",
         "{",
         "  \"schema_version\": \"ai-triage-result-0.2.0\",",
-        f"  \"triage_mode\": \"FAST_STATIC\",",
+        "  \"triage_mode\": \"FAST_STATIC\",",
         "  \"items\": [],",
         "  \"knowledge_update_suggestions\": [],",
         f"  \"notes\": [\"AI Jury reviewer: {reviewer_id}\"]",
@@ -164,6 +197,8 @@ def orchestrator_prompt(run_root: Path, profile_name: str, profile: dict[str, An
         "让多个 reviewer 独立审计同一批 candidate，并分别写入自己的 AI_TRIAGE_RESULT.json。", "",
         "## Important independence rule", "",
         "每个 reviewer 必须独立判断，不能读取其他 reviewer 的输出。支持并行子代理时可以并行执行；不支持并行时顺序执行也可以，但要确保后一个 reviewer 不读取前一个 reviewer 的结果。", "",
+        "## Resume rule", "",
+        "如果额度耗尽或中断，不要重新生成整个 run。后续只需要继续未完成 reviewer 的 PROMPT.md。可运行 `make ai-jury-status RUN_ROOT=...` 查看缺失或无效结果。", "",
         "## Reviewer tasks", "",
     ]
     for item in reviewer_outputs:
@@ -179,7 +214,7 @@ def orchestrator_prompt(run_root: Path, profile_name: str, profile: dict[str, An
         "```", "",
         "## Stop condition", "",
         "所有 reviewer 的结果文件写入后停止。不要合并结果，不要写最终 `ai/AI_TRIAGE_RESULT.json`，不要执行 after-ai-triage。", "",
-        "后续由工作台执行 consensus / adjudication / merge。",
+        "后续由工作台执行 consensus / adjudication / finalize / delivery。",
     ])
     return "\n".join(lines) + "\n"
 
@@ -235,7 +270,7 @@ def build_prompts(run_root: Path, profile_name: str) -> dict[str, Any]:
     orchestrator_path = run_root / "ai" / "AI_JURY_ORCHESTRATOR_PROMPT.md"
     orchestrator_path.write_text(orchestrator_prompt(run_root, profile_name, profile, reviewer_outputs), encoding="utf-8")
     result = {
-        "schema_version": "ai-jury-prompt-pack-0.1.0",
+        "schema_version": "ai-jury-prompt-pack-0.2.0",
         "generated_at": now(),
         "profile": profile_name,
         "profile_spec_ref": "spec/ai/jury-profiles.yaml",
@@ -247,6 +282,7 @@ def build_prompts(run_root: Path, profile_name: str) -> dict[str, Any]:
         "notes": [
             "Reviewer prompts are for independent file-based AI handoff.",
             "Do not let reviewers read each other's outputs before producing their own result.",
+            "REVIEW is not a default fallback; low-value all REVIEW/CAND outputs should be rerun with stronger reasoning.",
             "This step only generates prompts; consensus merge is a later step.",
         ],
     }

@@ -115,13 +115,7 @@ def quality_issue(code: str, severity: str, message: str, candidate_id: str | No
 
 def review_find(item: dict[str, Any], issues: list[dict[str, Any]]) -> None:
     cid = item.get("candidate_id")
-    required = {
-        "evidence": 20,
-        "risk_chain": 30,
-        "impact": 20,
-        "recommendation": 20,
-        "reason": 30,
-    }
+    required = {"evidence": 20, "risk_chain": 30, "impact": 20, "recommendation": 20, "reason": 30}
     for field, minimum in required.items():
         if text_len(item.get(field)) < minimum:
             issues.append(quality_issue("find_weak_field", "error", f"FIND has weak or missing {field}", cid, {"field": field, "min_length": minimum, "actual_length": text_len(item.get(field))}))
@@ -157,16 +151,7 @@ def review_fp(item: dict[str, Any], candidate: dict[str, Any] | None, issues: li
         reasons.append("missing_counterevidence")
         issues.append(quality_issue("fp_missing_counterevidence", "error", "FP must include clear counterevidence or negative_evidence_checked", cid))
     if score >= 3:
-        fp_qc_items.append({
-            "candidate_id": cid,
-            "decision": "FP",
-            "severity": severity,
-            "confidence": confidence,
-            "risk_parent": risk_parent,
-            "fp_review_score": score,
-            "qc_required": True,
-            "reasons": reasons,
-        })
+        fp_qc_items.append({"candidate_id": cid, "decision": "FP", "severity": severity, "confidence": confidence, "risk_parent": risk_parent, "fp_review_score": score, "qc_required": True, "reasons": reasons})
 
 
 def review_runtime(item: dict[str, Any], issues: list[dict[str, Any]]) -> None:
@@ -237,9 +222,10 @@ def build_result(run_root: Path) -> dict[str, Any]:
     fp_qc_items: list[dict[str, Any]] = []
 
     review_distribution(items, candidates, triage_mode, issues, warnings)
-    review_reason_quality(items, triage_mode, issues, warnings)
-    item_issues, fp_qc_items = review_items(items, candidates)
-    issues.extend(item_issues)
+    if triage_mode != "STUB":
+        review_reason_quality(items, triage_mode, issues, warnings)
+        item_issues, fp_qc_items = review_items(items, candidates)
+        issues.extend(item_issues)
 
     decision_dist = distribution(items, "decision")
     severity_dist = distribution(items, "severity")

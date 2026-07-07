@@ -151,12 +151,40 @@ ai/reviewers/<reviewer_id>/PROMPT.md
 ai/reviewers/<reviewer_id>/AI_TRIAGE_RESULT.json
 ```
 
-规则：
+提示词已按强模型 / 强代码 Agent 优化：
 
 ```text
-reviewer 必须独立判断
-不得读取其他 reviewer 的结果
-当前步骤只生成 prompt，不合并结果
+REVIEW 不能作为默认兜底
+CAND 只用于低价值或证据极弱候选
+FIND / FP / RUNTIME 要根据 evidence_for / evidence_against / proof_gap 独立判断
+高风险项不能轻易落 CAND
+```
+
+## Jury Status / 断点恢复
+
+当前已实现：
+
+```text
+scripts/78_check_ai_jury_status.py
+make ai-jury-status RUN_ROOT=...
+```
+
+该步骤读取 prompt pack 和 reviewer 结果，检查：
+
+```text
+reviewer 是否完成
+AI_TRIAGE_RESULT.json 是否合法 JSON
+candidate_id 是否重复
+candidate_id 是否未知
+decision 分布
+下一步该复制哪个 PROMPT.md 或是否可以 merge
+```
+
+产物：
+
+```text
+ai/jury/AI_JURY_STATUS.json
+ai/jury/AI_JURY_STATUS.md
 ```
 
 ## Jury Consensus / Adjudication
@@ -193,6 +221,14 @@ ready_for_adjudication      存在分歧或高风险 FP QC，需要仲裁
 consensus_ready             reviewer 一致，无需仲裁
 ```
 
+Adjudication prompt 已增加防护：
+
+```text
+禁止 high-risk low-action decision 直接映射为 CAND
+禁止把所有分歧项统一映射为 REVIEW
+要求逐项判断 evidence / counterevidence / proof_gap
+```
+
 该步骤不会写最终 `ai/AI_TRIAGE_RESULT.json`，也不会进入 merge / delivery。
 
 ## Jury Finalizer
@@ -227,6 +263,8 @@ consensus_ready：使用 consensus 中一致的 reviewer 结果生成最终 AI_T
 ready_for_adjudication：必须先有 AI_TRIAGE_ADJUDICATION_RESULT.json，再生成最终 AI_TRIAGE_RESULT
 awaiting_reviewer_results / failed：不生成最终 AI_TRIAGE_RESULT
 ```
+
+Finalizer 会记录最终 decision distribution。如果最终只有 REVIEW/CAND，会给出 warning 和重跑建议，然后由 quality gate 负责阻断低价值结果。
 
 finalize 后继续执行：
 

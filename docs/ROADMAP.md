@@ -28,13 +28,15 @@ M18         团队化、CLI adapter、CI/CD、插件导入和 issue tracking
 5. 支持 reviewer 独立结果目录：ai/reviewers/<reviewer_id>/AI_TRIAGE_RESULT.json
 6. 支持 consensus 输出：ai/consensus/AI_TRIAGE_CONSENSUS.json
 7. 支持 disagreement / adjudication prompt
+8. 支持 AI_TRIAGE_ADJUDICATION_RESULT.json 导入
+9. 支持从 consensus/adjudication 生成最终 AI_TRIAGE_RESULT.json
 ```
 
 待做：
 
 ```text
-1. 支持 AI_TRIAGE_ADJUDICATION_RESULT.json 导入
-2. 支持从 consensus/adjudication 生成最终 AI_TRIAGE_RESULT.json
+1. 增加 ai-jury-status，方便查看 reviewer 完成情况和断点恢复
+2. 增强 jury finalization 的统计和报告展示
 ```
 
 ## M15.4F：Delivery / Tracking 收敛

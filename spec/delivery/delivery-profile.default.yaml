@@ -1,0 +1,134 @@
+schema_version: delivery-profile-0.1.0
+
+name: default
+language: zh-CN
+
+policies:
+  business_tracking_statuses:
+    - FIND
+    - REVIEW
+    - RUNTIME
+    - BLOCKED
+  audit_quality_statuses:
+    - FP
+    - CAND
+  category_dimension: risk_parent
+
+tables:
+  business_tracking:
+    enabled: true
+    output: AUDIT_TRACKING.csv
+    include_status:
+      - FIND
+      - REVIEW
+      - RUNTIME
+      - BLOCKED
+    fields:
+      - finding_id
+      - candidate_id
+      - audit_status
+      - business_status
+      - verification_status
+      - resolution_reason
+      - severity
+      - confidence
+      - risk_parent
+      - risk_subtype
+      - risk_type
+      - title
+      - file_path
+      - line
+      - evidence
+      - impact
+      - remediation_advice
+      - tags
+      - owner
+      - due_date
+      - business_comment
+      - audit_comment
+
+  audit_quality_items:
+    enabled: true
+    output: AUDIT_QUALITY_ITEMS.csv
+    include_status:
+      - FP
+      - CAND
+    fields:
+      - item_id
+      - candidate_id
+      - audit_status
+      - quality_scope
+      - severity
+      - confidence
+      - risk_parent
+      - risk_subtype
+      - risk_type
+      - title
+      - file_path
+      - line
+      - reason
+      - negative_evidence_checked
+      - missing_evidence
+      - tags
+      - knowledge_hit_count
+      - qc_required
+      - audit_comment
+
+  all_items:
+    enabled: false
+    output: AUDIT_ALL_ITEMS.csv
+    include_status:
+      - FIND
+      - REVIEW
+      - RUNTIME
+      - BLOCKED
+      - FP
+      - CAND
+    fields:
+      - item_id
+      - candidate_id
+      - audit_status
+      - delivery_scope
+      - severity
+      - confidence
+      - risk_parent
+      - risk_subtype
+      - risk_type
+      - title
+      - file_path
+      - line
+      - evidence
+      - risk_chain
+      - impact
+      - remediation_advice
+      - reason
+      - tags
+
+stats:
+  enabled: true
+  outputs:
+    by_status: AUDIT_STATS_BY_STATUS.csv
+    by_severity: AUDIT_STATS_BY_SEVERITY.csv
+    by_category: AUDIT_STATS_BY_CATEGORY.csv
+    by_category_severity: AUDIT_STATS_BY_CATEGORY_SEVERITY.csv
+  scopes:
+    - all
+    - business
+    - audit_quality
+
+report:
+  title: 静态代码审计报告
+  sections:
+    - executive_summary
+    - audit_scope
+    - business_delivery_overview
+    - stats_by_status
+    - stats_by_severity
+    - stats_by_category
+    - stats_by_category_severity
+    - findings
+    - review_items
+    - runtime_items
+    - blocked_items
+    - audit_quality_appendix
+    - limitations

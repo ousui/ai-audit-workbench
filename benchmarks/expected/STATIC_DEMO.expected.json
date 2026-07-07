@@ -34,6 +34,11 @@
       "delivery/AUDIT_QUALITY_ITEMS.csv",
       "delivery/AUDIT_QUALITY_SUMMARY.json",
       "delivery/AUDIT_QUALITY_SUMMARY.md",
+      "delivery/DELIVERY_PROFILE_RESOLVED.json",
+      "delivery/AUDIT_STATS_BY_STATUS.csv",
+      "delivery/AUDIT_STATS_BY_SEVERITY.csv",
+      "delivery/AUDIT_STATS_BY_CATEGORY.csv",
+      "delivery/AUDIT_STATS_BY_CATEGORY_SEVERITY.csv",
       "validate/VALIDATION_RESULT.json"
     ]
   }

@@ -26,6 +26,7 @@
       "ai/AI_TRIAGE_HANDOFF.md",
       "ai/AI_TRIAGE_RESULT.json",
       "ai/AI_TRIAGE_VALIDATION_RESULT.json",
+      "ai/AI_TRIAGE_QUALITY_RESULT.json",
       "merge/MERGE_RESULT.json",
       "knowledge/KB_UPDATE_SUGGESTIONS.json",
       "delivery/AUDIT_REPORT.md",

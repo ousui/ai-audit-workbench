@@ -55,6 +55,7 @@ make knowledge-match RUN_ROOT=...
 make ai-triage-input RUN_ROOT=...
 make ai-triage RUN_ROOT=...
 make ai-triage-validate RUN_ROOT=...
+make ai-triage-quality RUN_ROOT=...
 make after-ai-triage RUN_ROOT=...
 make merge RUN_ROOT=...
 make kb-suggestions RUN_ROOT=...
@@ -67,7 +68,8 @@ make debug-trace RUN_ROOT=... DEBUG_LEVEL=basic
 - `ai-triage-input`：只生成 `AI_TRIAGE_INPUT.json` 和 `AI_TRIAGE_HANDOFF.md`，不生成 stub，供真实 AI file-based handoff 使用。
 - `ai-triage`：生成输入并写入 STUB 结果，仅用于流程验证。
 - `ai-triage-validate`：校验人工或 AI 写入的 `AI_TRIAGE_RESULT.json`。
-- `after-ai-triage`：在真实 AI 输出写入并校验通过后，继续执行 merge、kb-suggestions、delivery 和 validate-run。
+- `ai-triage-quality`：对 `AI_TRIAGE_RESULT.json` 做语义质量门禁，拦截分布异常、模板化、低质量 FIND/FP/RUNTIME，并输出 `AI_TRIAGE_QUALITY_RESULT.*`。
+- `after-ai-triage`：在真实 AI 输出写入并通过 schema 与 quality gate 后，继续执行 merge、kb-suggestions、delivery 和 validate-run。
 - `kb-suggestions`：从 AI triage / merge 结果收集知识库更新建议，输出 `knowledge/KB_UPDATE_SUGGESTIONS.*`，不自动写入本地知识库。
 
 ## File-based AI triage
@@ -82,6 +84,15 @@ make audit-static \
 # 写入 run_root/ai/AI_TRIAGE_RESULT.json 后继续：
 make after-ai-triage RUN_ROOT=...
 ```
+
+`after-ai-triage` 会先执行：
+
+```text
+ai-triage-validate
+ai-triage-quality
+```
+
+如果质量门禁失败，不会继续进入 merge / delivery。
 
 ## 缓存更新入口
 

@@ -176,7 +176,11 @@ def classify_item(candidate_id: str, expected_reviewers: int, reviewer_results: 
             reasons.append("high-risk unanimous FP requires QC")
     if high_risk and suggested_decision in {"FP", "CAND"}:
         needs_adjudication = True
-        reasons.append("high-risk low-action decision")
+        if suggested_decision == "CAND":
+            suggested_decision = "REVIEW"
+        if disagreement_level == "none":
+            disagreement_level = "qc"
+        reasons.append("high-risk low-action decision requires escalation; do not default to CAND")
     if has_runtime or has_review:
         reasons.append("review/runtime decision present")
     agreement = f"{top_count}/{total_present}" if total_present else "0/0"
@@ -216,7 +220,7 @@ def build_consensus(run_root: Path) -> dict[str, Any]:
     else:
         status = "consensus_ready"
     return {
-        "schema_version": "ai-jury-consensus-0.1.0",
+        "schema_version": "ai-jury-consensus-0.2.0",
         "generated_at": now(),
         "status": status,
         "can_continue": status in {"ready_for_adjudication", "consensus_ready"},
@@ -237,7 +241,7 @@ def build_consensus(run_root: Path) -> dict[str, Any]:
         "notes": [
             "This step compares independent reviewer outputs; it does not write final AI_TRIAGE_RESULT.json.",
             "If status is ready_for_adjudication, copy AI_TRIAGE_ADJUDICATION_PROMPT.md to a high-reasoning reviewer.",
-            "If status is consensus_ready, a later finalization step can convert consensus to AI_TRIAGE_RESULT.json.",
+            "If status is consensus_ready, run ai-jury-finalize to produce AI_TRIAGE_RESULT.json.",
         ],
     }
 
@@ -312,19 +316,33 @@ def render_adjudication_prompt(result: dict[str, Any], run_root: Path) -> str:
         return "\n".join(lines)
     lines.extend(["## Items to adjudicate", ""])
     for item in items[:200]:
-        lines.append(f"- `{item['candidate_id']}` decision_counts={item.get('decision_counts')} reasons={', '.join(item.get('reasons') or [])}")
+        lines.append(f"- `{item['candidate_id']}` suggested={item.get('suggested_decision')} decision_counts={item.get('decision_counts')} reasons={', '.join(item.get('reasons') or [])}")
     lines.extend([
-        "", "## Rules", "",
+        "", "## Decision calibration", "",
+        "- FIND：证据足以证明风险成立，或 source/sink/control/impact 的核心链路成立。",
+        "- FP：存在明确反证，例如测试假值、日志、非 sink、不可达、文档样例、非敏感值。",
+        "- RUNTIME：风险可能成立，但必须依赖运行时配置、权限边界、真实请求链路或外部输入才能证明。",
+        "- REVIEW：需要人工业务上下文或设计判断；不能作为默认兜底。",
+        "- CAND：低价值或证据极弱候选；高风险项不要判 CAND。", "",
+        "## Strong guardrails", "",
+        "1. 禁止把 `high-risk low-action decision` 简单映射为 CAND。高风险且证据不足时，通常应为 REVIEW 或 RUNTIME。",
+        "2. 禁止把所有分歧项统一映射为 REVIEW；必须逐项判断证据、反证和 proof gap。",
+        "3. 明显硬编码凭据、可达危险 sink、缺鉴权敏感操作，不要因为保守而降级。",
+        "4. 明确误报必须 FP，并写出 counterevidence。",
+        "5. 如果最终没有任何 FIND/FP/RUNTIME，请在 notes 里解释为什么全量只能 REVIEW/CAND，否则视为低价值仲裁。", "",
+        "## Rules", "",
         "1. 只能裁决上面列出的 candidate_id。",
         "2. decision 只能是 FIND / REVIEW / RUNTIME / CAND / FP / BLOCKED。",
         "3. FIND 必须包含 evidence、risk_chain、impact、recommendation、negative_evidence_checked、reason。",
         "4. FP 必须包含明确反证，不能只写证据不足。",
         "5. RUNTIME 必须说明缺什么运行时证据。",
-        "6. 不得输出 business_status、verification_status、resolution_reason。", "",
+        "6. REVIEW 必须说明需要什么人工上下文。",
+        "7. 不得输出 business_status、verification_status、resolution_reason。", "",
         "## Expected JSON", "", "```json",
         "{",
         "  \"schema_version\": \"ai-jury-adjudication-result-0.1.0\",",
-        "  \"items\": []",
+        "  \"items\": [],",
+        "  \"notes\": []",
         "}",
         "```", "",
     ])

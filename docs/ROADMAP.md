@@ -46,14 +46,23 @@ M18         团队化、CLI adapter、CI/CD、插件导入和 issue tracking
 
 目标：让报告接近真实交付视图。
 
+已完成：
+
+```text
+1. AUDIT_TRACKING.csv 默认只进入业务需要处理的内容：FIND / REVIEW / RUNTIME / BLOCKED
+2. FP / CAND 不进入业务整改表，进入 AUDIT_QUALITY_ITEMS.csv
+3. 新增 AUDIT_QUALITY_SUMMARY.json/md，记录业务交付、审计质量、AI quality gate、AI Jury 摘要
+4. 报告增加业务交付概览、审计质量概览、FP/CAND 审计侧附录
+5. 报告明确 STUB / file-based / AI Jury 的 triage 来源
+```
+
 待做：
 
 ```text
-1. 报告按 FIND / REVIEW / RUNTIME / BLOCKED / FP summary 分区
-2. AUDIT_TRACKING.csv 默认只进入业务需要处理的内容
-3. FP 不进业务整改表，但进入审计侧质量统计和知识库建议
-4. FIND 增加 root_control、sink、entrypoint、proof_gap、counterevidence 字段
-5. 报告明确 STUB / file-based / jury / extension 的 triage 来源
+1. FIND 增加 root_control、sink、entrypoint、proof_gap、counterevidence 字段
+2. 报告增加更清晰的 executive summary 和整改优先级
+3. AUDIT_TRACKING.csv 增加 owner/due_date 的默认策略或导入机制
+4. 对 FP QC、REVIEW 高占比、Jury 分歧高占比增加醒目提示
 ```
 
 ## M15.5：Threat Model + Coverage + Attack Path

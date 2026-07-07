@@ -30,13 +30,16 @@ M18         团队化、CLI adapter、CI/CD、插件导入和 issue tracking
 7. 支持 disagreement / adjudication prompt
 8. 支持 AI_TRIAGE_ADJUDICATION_RESULT.json 导入
 9. 支持从 consensus/adjudication 生成最终 AI_TRIAGE_RESULT.json
+10. 增加 ai-jury-status，方便查看 reviewer 完成情况和断点恢复
+11. 强化 reviewer / adjudication prompt，减少全 REVIEW/CAND 低价值结果
+12. finalizer 记录 decision distribution，并对低价值分布给出 warning 和重跑建议
 ```
 
 待做：
 
 ```text
-1. 增加 ai-jury-status，方便查看 reviewer 完成情况和断点恢复
-2. 增强 jury finalization 的统计和报告展示
+1. 将 ai-jury-status 接入更完整的调试/重跑向导
+2. 增强 jury finalization 在 delivery 报告中的展示
 ```
 
 ## M15.4F：Delivery / Tracking 收敛

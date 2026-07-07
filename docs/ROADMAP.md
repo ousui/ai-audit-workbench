@@ -24,15 +24,15 @@ M18         团队化、CLI adapter、CI/CD、插件导入和 issue tracking
 1. 定义 AI Jury profile：fast / balanced / deep / strong / cross_model_strong
 2. 预留 AI Extension / Plugin Layer 接口
 3. 实现 AI_TRIAGE_QUALITY_RESULT，拦截分布异常、模板化、低质量 FIND/FP/RUNTIME
+4. 生成 reviewer prompt pack：balanced、risk_hunter、fp_skeptic、chain_verifier、adjudicator
+5. 支持 reviewer 独立结果目录：ai/reviewers/<reviewer_id>/AI_TRIAGE_RESULT.json
 ```
 
 待做：
 
 ```text
-1. 生成 reviewer prompt pack：balanced、risk_hunter、fp_skeptic、chain_verifier、adjudicator
-2. 支持 reviewer 独立结果目录：ai/reviewers/<reviewer_id>/AI_TRIAGE_RESULT.json
-3. 支持 consensus 输出：ai/consensus/AI_TRIAGE_CONSENSUS.json
-4. 支持 disagreement / adjudication prompt
+1. 支持 consensus 输出：ai/consensus/AI_TRIAGE_CONSENSUS.json
+2. 支持 disagreement / adjudication prompt
 ```
 
 ## M15.4F：Delivery / Tracking 收敛

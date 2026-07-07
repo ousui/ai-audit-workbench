@@ -33,6 +33,7 @@
       "delivery/AUDIT_TRACKING.csv",
       "delivery/AUDIT_QUALITY_ITEMS.csv",
       "delivery/AUDIT_QUALITY_SUMMARY.json",
+      "delivery/AUDIT_QUALITY_SUMMARY.md",
       "validate/VALIDATION_RESULT.json"
     ]
   }

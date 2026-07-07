@@ -54,15 +54,19 @@ M18         团队化、CLI adapter、CI/CD、插件导入和 issue tracking
 3. 新增 AUDIT_QUALITY_SUMMARY.json/md，记录业务交付、审计质量、AI quality gate、AI Jury 摘要
 4. 报告增加业务交付概览、审计质量概览、FP/CAND 审计侧附录
 5. 报告明确 STUB / file-based / AI Jury 的 triage 来源
+6. 增加 delivery profile：默认字段、字段可配置、表格可开关、报告章节可配置
+7. 增加 delivery-profile-validate，校验字段、状态范围、统计项和章节配置
+8. 增加统计 CSV：按状态、风险级别、风险大类、风险大类+级别
+9. 报告按 profile 输出执行摘要、统计表、业务明细和审计质量附录
 ```
 
 待做：
 
 ```text
 1. FIND 增加 root_control、sink、entrypoint、proof_gap、counterevidence 字段
-2. 报告增加更清晰的 executive summary 和整改优先级
-3. AUDIT_TRACKING.csv 增加 owner/due_date 的默认策略或导入机制
-4. 对 FP QC、REVIEW 高占比、Jury 分歧高占比增加醒目提示
+2. 报告增加整改优先级 priority / suggested_owner / due_date_policy
+3. 对 FP QC、REVIEW 高占比、Jury 分歧高占比增加醒目提示
+4. 后续如需 xlsx/docx/pptx、Logo、主题样式，放入 M18 交付自动化
 ```
 
 ## M15.5：Threat Model + Coverage + Attack Path

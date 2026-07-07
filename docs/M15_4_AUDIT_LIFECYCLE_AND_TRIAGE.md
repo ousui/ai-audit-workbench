@@ -171,6 +171,38 @@ knowledge_summary
 candidate.knowledge_hits
 ```
 
+## AI triage quality gate
+
+M15.4E-fix 已增加质量门禁：
+
+```text
+scripts/77_review_ai_triage_quality.py
+make ai-triage-quality RUN_ROOT=...
+```
+
+质量门禁用于拦截结构合法但语义明显无效的 AI 输出。
+
+检查项：
+
+```text
+decision 分布异常
+reason 高度模板化
+AI 输出高度复刻输入初始 status
+FIND 缺 evidence / risk_chain / impact / recommendation / negative_evidence_checked
+FP 缺明确反证
+RUNTIME 缺 missing_evidence 或 questions_for_human
+高风险 FP 标记为 FP QC item
+```
+
+产物：
+
+```text
+ai/AI_TRIAGE_QUALITY_RESULT.json
+ai/AI_TRIAGE_QUALITY_RESULT.md
+```
+
+`STUB` triage 仅用于流程验证，quality gate 会允许通过但写入 warning。
+
 ## File-based AI handoff
 
 默认 `audit-static` 仍使用 STUB triage 以保证端到端验证稳定。
@@ -197,6 +229,7 @@ var/runs/<project>/<run>/ai/AI_TRIAGE_RESULT.json
 
 ```bash
 make ai-triage-validate RUN_ROOT=...
+make ai-triage-quality RUN_ROOT=...
 make after-ai-triage RUN_ROOT=...
 ```
 
@@ -204,11 +237,14 @@ make after-ai-triage RUN_ROOT=...
 
 ```text
 ai-triage-validate
+ai-triage-quality
 merge
 kb-suggestions
 delivery
 validate-run
 ```
+
+如果 quality gate 失败，不进入 merge / delivery。
 
 ## Merge / Delivery
 
@@ -256,6 +292,7 @@ cat "$RUN_ROOT/knowledge/KB_HITS.md"
 cat "$RUN_ROOT/ai/AI_TRIAGE_INPUT.json" | head -120
 cat "$RUN_ROOT/ai/AI_TRIAGE_HANDOFF.md"
 cat "$RUN_ROOT/ai/AI_TRIAGE_VALIDATION_RESULT.md"
+cat "$RUN_ROOT/ai/AI_TRIAGE_QUALITY_RESULT.md"
 cat "$RUN_ROOT/merge/MERGE_RESULT.md"
 cat "$RUN_ROOT/knowledge/KB_UPDATE_SUGGESTIONS.md"
 head -1 "$RUN_ROOT/delivery/AUDIT_TRACKING.csv"

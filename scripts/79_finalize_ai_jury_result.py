@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import collections
 import datetime as dt
 import json
 import sys
@@ -13,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ALLOWED_DECISIONS = {"FIND", "REVIEW", "RUNTIME", "CAND", "FP", "BLOCKED"}
 ALLOWED_SEVERITY = {"P0", "P1", "P2", "P3", "P4"}
 ALLOWED_CONFIDENCE = {"high", "medium", "low"}
+LOW_VALUE_ONLY_DECISIONS = {"REVIEW", "CAND"}
 
 
 def now() -> str:
@@ -58,6 +60,16 @@ def as_str(value: Any, default: str = "") -> str:
     if isinstance(value, str):
         return value
     return json.dumps(value, ensure_ascii=False)
+
+
+def decision_distribution(items: list[dict[str, Any]]) -> dict[str, int]:
+    counter = collections.Counter(str(item.get("decision") or "") for item in items)
+    return dict(sorted(counter.items(), key=lambda x: (-x[1], x[0])))
+
+
+def is_low_value_distribution(dist: dict[str, int], total: int) -> bool:
+    decisions = {k for k, v in dist.items() if v > 0}
+    return total >= 50 and decisions.issubset(LOW_VALUE_ONLY_DECISIONS) and not decisions.intersection({"FIND", "FP", "RUNTIME", "BLOCKED"})
 
 
 def candidate_map(run_root: Path) -> dict[str, dict[str, Any]]:
@@ -229,6 +241,8 @@ def finalize(run_root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     consensus = read_consensus(run_root)
     adjudication = read_adjudication(run_root)
     errors: list[str] = []
+    warnings: list[str] = []
+    recommended_next_steps: list[str] = []
     validate_ready(consensus, adjudication, errors)
     candidates = candidate_map(run_root)
     reviewer_items = read_reviewer_items(run_root, pack)
@@ -248,6 +262,14 @@ def finalize(run_root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
                 source = pick_source_item(cid, consensus_item, reviewer_items)
                 final_items.append(normalize_item(cid, source, candidate, "consensus"))
                 source_counts["consensus"] += 1
+    dist = decision_distribution(final_items)
+    if is_low_value_distribution(dist, len(final_items)):
+        warnings.append("Final AI Jury result only contains REVIEW/CAND. This is usually a low-value audit result and may fail ai-triage-quality.")
+        recommended_next_steps.extend([
+            "Inspect reviewer distributions with make ai-jury-status RUN_ROOT=...",
+            "If reviewers are low-value, rerun ai-jury-prompts with a stronger profile/model.",
+            "If only adjudication is low-value, rerun AI_TRIAGE_ADJUDICATION_PROMPT.md with stronger guardrails.",
+        ])
     triage_result = {
         "schema_version": "ai-triage-result-0.2.0",
         "triage_mode": "FAST_STATIC",
@@ -258,11 +280,12 @@ def finalize(run_root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
             f"AI Jury profile: {pack.get('profile')}",
             f"Consensus status: {consensus.get('status')}",
             f"Final items: {len(final_items)}",
+            f"Decision distribution: {dist}",
             f"Source counts: consensus={source_counts['consensus']}, adjudication={source_counts['adjudication']}",
         ],
     }
     finalization = {
-        "schema_version": "ai-jury-finalization-result-0.1.0",
+        "schema_version": "ai-jury-finalization-result-0.2.0",
         "generated_at": now(),
         "status": "passed" if not errors else "failed",
         "can_continue": not errors,
@@ -275,10 +298,14 @@ def finalize(run_root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
             "adjudication_required": len(consensus.get("adjudication_items") or []),
             "adjudication_items": len(adjudication_by_candidate),
             "final_items": len(final_items),
+            "decision_distribution": dist,
             "source_counts": source_counts,
             "error_count": len(errors),
+            "warning_count": len(warnings),
         },
         "errors": errors,
+        "warnings": warnings,
+        "recommended_next_steps": recommended_next_steps,
         "notes": [
             "This step writes final ai/AI_TRIAGE_RESULT.json only when consensus/adjudication inputs are complete.",
             "Run ai-triage-validate and ai-triage-quality after finalization.",
@@ -298,12 +325,23 @@ def render_md(result: dict[str, Any]) -> str:
         f"- Adjudication required: {s.get('adjudication_required')}",
         f"- Adjudication items: {s.get('adjudication_items')}",
         f"- Final items: {s.get('final_items')}",
+        f"- Decision distribution: `{s.get('decision_distribution')}`",
         f"- Output: `{result.get('output_ref')}`", "",
     ]
     if result.get("errors"):
         lines.extend(["## Errors", ""])
         for err in result["errors"]:
             lines.append(f"- {err}")
+        lines.append("")
+    if result.get("warnings"):
+        lines.extend(["## Warnings", ""])
+        for warning in result["warnings"]:
+            lines.append(f"- {warning}")
+        lines.append("")
+    if result.get("recommended_next_steps"):
+        lines.extend(["## Recommended next steps", ""])
+        for step in result["recommended_next_steps"]:
+            lines.append(f"- {step}")
         lines.append("")
     return "\n".join(lines)
 
@@ -314,9 +352,12 @@ def print_summary(result: dict[str, Any]) -> None:
     print(f"  status: {result.get('status')}")
     print(f"  can_continue: {result.get('can_continue')}")
     print(f"  final_items: {s.get('final_items')}")
+    print(f"  decisions: {s.get('decision_distribution')}")
     print(f"  adjudication_items: {s.get('adjudication_items')}")
     for err in result.get("errors") or []:
         print(f"  error: {err}")
+    for warning in result.get("warnings") or []:
+        print(f"  warning: {warning}")
 
 
 def main(argv: list[str]) -> int:

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bdg.local/ai-audit-workbench/spec/delivery/delivery-profile.schema.json",
+  "title": "Delivery Profile",
+  "type": "object",
+  "required": ["schema_version", "tables", "stats", "report"],
+  "properties": {
+    "schema_version": {"const": "delivery-profile-0.1.0"},
+    "name": {"type": "string"},
+    "language": {"type": "string"},
+    "policies": {"type": "object"},
+    "tables": {"type": "object"},
+    "stats": {"type": "object"},
+    "report": {"type": "object"}
+  },
+  "additionalProperties": true
+}

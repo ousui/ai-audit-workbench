@@ -33,6 +33,11 @@ REQUIRED_FILES = [
     "delivery/AUDIT_QUALITY_ITEMS.csv",
     "delivery/AUDIT_QUALITY_SUMMARY.json",
     "delivery/AUDIT_QUALITY_SUMMARY.md",
+    "delivery/DELIVERY_PROFILE_RESOLVED.json",
+    "delivery/AUDIT_STATS_BY_STATUS.csv",
+    "delivery/AUDIT_STATS_BY_SEVERITY.csv",
+    "delivery/AUDIT_STATS_BY_CATEGORY.csv",
+    "delivery/AUDIT_STATS_BY_CATEGORY_SEVERITY.csv",
     "delivery/DELIVERY_RECORD.json",
 ]
 CANDIDATE_INITIAL_STATUSES = {"CAND", "REVIEW", "RUNTIME", "BLOCKED"}
@@ -41,6 +46,12 @@ BUSINESS_TRACKING_STATUSES = {"FIND", "REVIEW", "RUNTIME", "BLOCKED"}
 QUALITY_TRACKING_STATUSES = {"FP", "CAND"}
 REQUIRED_TRACKING_HEADERS = {"finding_id", "candidate_id", "audit_status", "business_status", "verification_status", "risk_parent", "risk_subtype", "tags"}
 REQUIRED_QUALITY_HEADERS = {"item_id", "candidate_id", "audit_status", "quality_scope", "risk_parent", "risk_subtype", "qc_required"}
+REQUIRED_STATS_HEADERS = {
+    "AUDIT_STATS_BY_STATUS.csv": {"scope", "audit_status", "count"},
+    "AUDIT_STATS_BY_SEVERITY.csv": {"scope", "severity", "count"},
+    "AUDIT_STATS_BY_CATEGORY.csv": {"scope", "risk_parent", "count"},
+    "AUDIT_STATS_BY_CATEGORY_SEVERITY.csv": {"scope", "risk_parent", "severity", "count"},
+}
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -181,11 +192,30 @@ def validate_quality_items(path: Path, errors: list[str], checks: list[dict[str,
 
 def validate_quality_summary(path: Path, errors: list[str], checks: list[dict[str, Any]]) -> None:
     result = load_json(path)
-    if result.get("schema_version") != "audit-quality-summary-0.1.0":
+    if result.get("schema_version") != "audit-quality-summary-0.2.0":
         errors.append("AUDIT_QUALITY_SUMMARY schema_version mismatch")
     business = result.get("business_delivery") or {}
     quality = result.get("audit_quality") or {}
     checks.append({"check": "audit_quality_summary", "status": "ok", "business_tracking_rows": business.get("tracking_rows"), "quality_item_rows": quality.get("quality_item_rows")})
+
+
+def validate_delivery_profile_resolved(path: Path, errors: list[str], checks: list[dict[str, Any]]) -> None:
+    result = load_json(path)
+    if result.get("schema_version") != "delivery-profile-0.1.0":
+        errors.append("DELIVERY_PROFILE_RESOLVED schema_version mismatch")
+    checks.append({"check": "delivery_profile_resolved", "status": "ok", "profile": result.get("name")})
+
+
+def validate_stats_csv(path: Path, required: set[str], errors: list[str], checks: list[dict[str, Any]]) -> None:
+    try:
+        headers, rows = read_csv_rows(path)
+    except Exception as exc:
+        errors.append(f"failed to read stats csv {path.name}: {exc}")
+        return
+    missing = required - headers
+    if missing:
+        errors.append(f"{path.name} missing headers: " + ", ".join(sorted(missing)))
+    checks.append({"check": "stats_csv", "path": f"delivery/{path.name}", "status": "ok" if not missing else "failed", "rows": len(rows), "missing": sorted(missing)})
 
 
 def validate(run_root: Path) -> dict[str, Any]:
@@ -204,6 +234,7 @@ def validate(run_root: Path) -> dict[str, Any]:
     tracking_path = run_root / "delivery" / "AUDIT_TRACKING.csv"
     quality_items_path = run_root / "delivery" / "AUDIT_QUALITY_ITEMS.csv"
     quality_summary_path = run_root / "delivery" / "AUDIT_QUALITY_SUMMARY.json"
+    profile_resolved_path = run_root / "delivery" / "DELIVERY_PROFILE_RESOLVED.json"
     ai_validation_path = run_root / "ai" / "AI_TRIAGE_VALIDATION_RESULT.json"
     ai_quality_path = run_root / "ai" / "AI_TRIAGE_QUALITY_RESULT.json"
     if candidate_path.is_file():
@@ -217,7 +248,7 @@ def validate(run_root: Path) -> dict[str, Any]:
         validate_merge(merge_path, errors, warnings, checks)
     if delivery_record_path.is_file():
         record = load_json(delivery_record_path)
-        checks.append({"check": "delivery_record", "status": "ok", "tracking_rows": record.get("tracking_rows"), "audit_quality_rows": record.get("audit_quality_rows"), "tracking_policy": record.get("tracking_policy")})
+        checks.append({"check": "delivery_record", "status": "ok", "tracking_rows": record.get("tracking_rows"), "audit_quality_rows": record.get("audit_quality_rows"), "all_item_rows": record.get("all_item_rows"), "tracking_policy": record.get("tracking_policy")})
         if record.get("tracking_policy") != "business_action_items_only":
             errors.append("delivery record tracking_policy must be business_action_items_only")
     if tracking_path.is_file():
@@ -226,8 +257,14 @@ def validate(run_root: Path) -> dict[str, Any]:
         validate_quality_items(quality_items_path, errors, checks)
     if quality_summary_path.is_file():
         validate_quality_summary(quality_summary_path, errors, checks)
+    if profile_resolved_path.is_file():
+        validate_delivery_profile_resolved(profile_resolved_path, errors, checks)
+    for filename, required in REQUIRED_STATS_HEADERS.items():
+        stats_path = run_root / "delivery" / filename
+        if stats_path.is_file():
+            validate_stats_csv(stats_path, required, errors, checks)
     status = "passed" if not errors else "failed"
-    return {"schema_version": "validation-result-0.6.0", "status": status, "error_count": len(errors), "warning_count": len(warnings), "errors": errors, "warnings": warnings, "checks": checks}
+    return {"schema_version": "validation-result-0.7.0", "status": status, "error_count": len(errors), "warning_count": len(warnings), "errors": errors, "warnings": warnings, "checks": checks}
 
 
 def render_md(result: dict[str, Any]) -> str:

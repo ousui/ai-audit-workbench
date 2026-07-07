@@ -1,0 +1,247 @@
+schema_version: ai-jury-profiles-0.1.0
+status: draft_locked
+
+principles:
+  - AI Jury is an accuracy layer, not a replacement for deterministic tools or human gatekeeping.
+  - Multiple reviewers must be independent: a reviewer must not read another reviewer result before producing its own result.
+  - More reviewers are not always better. Use adaptive budget and escalate only high-risk or disputed items.
+  - Very-high reasoning should be reserved for adjudication, high-risk findings, high-risk false positives, and disagreement cases.
+  - Same-model multi-run reviews provide limited independence; cross-model or cross-tool diversity is preferred for strong mode.
+
+reasoning_levels:
+  medium:
+    meaning_zh: 中等推理，适合明显误报过滤和批量降噪。
+  high:
+    meaning_zh: 高推理，适合作为主审或正式审计默认推理级别。
+  very_high:
+    meaning_zh: 极高推理，只用于分歧仲裁、高风险 FP 复核、关键 FIND 复核和链路分析。
+
+reviewer_roles:
+  balanced_auditor:
+    label_zh: 平衡审计员
+    objective_zh: 平衡判断 FIND / FP / REVIEW / RUNTIME，避免过度激进或过度保守。
+  risk_hunter:
+    label_zh: 漏报防御审计员
+    objective_zh: 优先避免漏报，重点关注密钥、鉴权、注入、文件、资金和业务链路。
+  fp_skeptic:
+    label_zh: 误报压制审计员
+    objective_zh: 寻找反证，识别日志、变量名、配置 key、非 sink、不可达路径等误报。
+  chain_verifier:
+    label_zh: 链路验证审计员
+    objective_zh: 扩大上下文，分析入口点、source、sink、信任边界、可达性和 proof gap。
+  adjudicator:
+    label_zh: 仲裁员
+    objective_zh: 只处理分歧项、高风险 FP、关键 FIND 和质量门禁要求复核的条目。
+
+high_risk_parents:
+  - CRYPTOGRAPHY_SECRETS
+  - INPUT_INJECTION
+  - ACCESS_CONTROL
+  - AUTHENTICATION_SESSION
+  - BUSINESS_LOGIC
+  - FILE_OPERATION
+  - DATA_PROTECTION_PRIVACY
+
+profiles:
+  fast:
+    purpose_zh: 流程调试、低风险快速审计、smoke 验证。
+    reviewers:
+      - id: reviewer-balanced
+        role: balanced_auditor
+        reasoning: high
+    adjudication:
+      enabled: false
+    quality_gate:
+      enabled: true
+      blocking: true
+
+  balanced:
+    purpose_zh: 日常默认审计模式。
+    reviewers:
+      - id: reviewer-balanced
+        role: balanced_auditor
+        reasoning: high
+      - id: reviewer-fp-skeptic
+        role: fp_skeptic
+        reasoning: medium
+    adjudication:
+      enabled: true
+      adjudicator:
+        id: reviewer-adjudicator
+        role: adjudicator
+        reasoning: very_high
+      triggers:
+        - find_vs_fp_disagreement
+        - find_vs_review_or_runtime
+        - high_risk_fp
+        - low_confidence_fp
+        - p0_p1_finding
+        - template_reason
+    quality_gate:
+      enabled: true
+      blocking: true
+
+  deep:
+    purpose_zh: 正式审计默认深度模式。
+    reviewers:
+      - id: reviewer-balanced
+        role: balanced_auditor
+        reasoning: high
+      - id: reviewer-risk-hunter
+        role: risk_hunter
+        reasoning: high
+      - id: reviewer-fp-skeptic
+        role: fp_skeptic
+        reasoning: high
+    adjudication:
+      enabled: true
+      adjudicator:
+        id: reviewer-adjudicator
+        role: adjudicator
+        reasoning: very_high
+      triggers:
+        - any_strong_disagreement
+        - high_risk_fp
+        - low_confidence
+        - p0_p1_finding
+        - runtime_items
+        - review_items_with_high_risk_parent
+        - template_reason
+    quality_gate:
+      enabled: true
+      blocking: true
+
+  strong:
+    purpose_zh: 高敏项目、正式交付前、质量基准评估。
+    reviewers:
+      - id: reviewer-balanced
+        role: balanced_auditor
+        reasoning: high
+      - id: reviewer-risk-hunter
+        role: risk_hunter
+        reasoning: very_high
+      - id: reviewer-fp-skeptic
+        role: fp_skeptic
+        reasoning: high
+      - id: reviewer-chain-verifier
+        role: chain_verifier
+        reasoning: very_high
+    adjudication:
+      enabled: true
+      adjudicator:
+        id: reviewer-adjudicator
+        role: adjudicator
+        reasoning: very_high
+      triggers:
+        - any_disagreement
+        - high_risk_fp
+        - all_findings
+        - all_runtime_items
+        - low_or_medium_confidence
+        - template_reason
+    quality_gate:
+      enabled: true
+      blocking: true
+
+  cross_model_strong:
+    purpose_zh: 重大项目、多模型/多 Agent 对照、插件增强审计和 benchmark。
+    reviewers:
+      - id: reviewer-openai-or-codex
+        role: balanced_auditor
+        reasoning: high
+        diversity_hint: openai_or_codex
+      - id: reviewer-claude-code
+        role: risk_hunter
+        reasoning: high
+        diversity_hint: claude_code_or_equivalent
+      - id: reviewer-fp-skeptic
+        role: fp_skeptic
+        reasoning: high
+        diversity_hint: different_prompt_or_model
+      - id: reviewer-security-plugin
+        role: chain_verifier
+        reasoning: very_high
+        diversity_hint: security_plugin_or_skill
+    optional_reviewers:
+      - id: reviewer-extra-model
+        role: balanced_auditor
+        reasoning: high
+        diversity_hint: another_vendor_or_internal_agent
+    adjudication:
+      enabled: true
+      adjudicator:
+        id: reviewer-adjudicator
+        role: adjudicator
+        reasoning: very_high
+      triggers:
+        - any_disagreement
+        - high_risk_fp
+        - all_findings
+        - low_or_medium_confidence
+    quality_gate:
+      enabled: true
+      blocking: true
+
+consensus_rules:
+  default_finalization:
+    - condition: all_reviewers_find_with_strong_evidence
+      final_decision: FIND
+      review_required: false
+    - condition: majority_find_without_fp_disagreement
+      final_decision: REVIEW
+      review_required: true
+    - condition: find_vs_fp_disagreement
+      final_decision: REVIEW
+      review_required: true
+      require_adjudication: true
+    - condition: all_reviewers_fp_with_counterevidence
+      final_decision: FP
+      review_required: false
+      fp_qc_may_still_apply: true
+    - condition: high_risk_fp
+      final_decision: FP
+      review_required: true
+      require_fp_qc: true
+    - condition: majority_runtime
+      final_decision: RUNTIME
+      review_required: true
+    - condition: no_clear_decision
+      final_decision: REVIEW
+      review_required: true
+
+quality_gate_rules:
+  distribution_anomaly:
+    enabled: true
+    examples:
+      - many_candidates_but_find_fp_runtime_all_zero
+      - decisions_only_mirror_input_status
+      - excessive_single_decision_ratio
+  reason_quality:
+    enabled: true
+    checks:
+      - duplicate_reason_ratio
+      - too_short_reason
+      - missing_candidate_specific_evidence
+  find_quality:
+    enabled: true
+    required_fields:
+      - evidence
+      - risk_chain
+      - impact
+      - recommendation
+      - negative_evidence_checked
+      - reason
+  fp_quality:
+    enabled: true
+    review_triggers:
+      - severity_p0_or_p1
+      - high_risk_parent
+      - confidence_low
+      - missing_counterevidence
+      - too_short_reason
+      - template_reason
+  runtime_quality:
+    enabled: true
+    required_fields:
+      - missing_evidence
+      - questions_for_human

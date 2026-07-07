@@ -73,6 +73,7 @@ COMPILE_SCRIPTS = [
     "scripts/76_validate_ai_triage.py",
     "scripts/77_review_ai_triage_quality.py",
     "scripts/78_build_ai_jury_prompts.py",
+    "scripts/78_check_ai_jury_status.py",
     "scripts/79_merge_ai_jury_results.py",
     "scripts/79_finalize_ai_jury_result.py",
     "scripts/80_merge_results.py",
@@ -150,7 +151,7 @@ def main(argv: list[str]) -> int:
         smoke_errors, smoke_warnings = check_smoke()
         errors.extend(smoke_errors)
         warnings.extend(smoke_warnings)
-    result: dict[str, Any] = {"schema_version": "layout-verify-result-1.3.0", "status": "passed" if not errors else "failed", "error_count": len(errors), "warning_count": len(warnings), "errors": errors, "warnings": warnings}
+    result: dict[str, Any] = {"schema_version": "layout-verify-result-1.4.0", "status": "passed" if not errors else "failed", "error_count": len(errors), "warning_count": len(warnings), "errors": errors, "warnings": warnings}
     out = ROOT / "var" / "tmp" / "layout-verify"
     out.mkdir(parents=True, exist_ok=True)
     (out / "LAYOUT_VERIFY_RESULT.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

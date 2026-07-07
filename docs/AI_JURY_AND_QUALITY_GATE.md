@@ -159,14 +159,44 @@ reviewer 必须独立判断
 当前步骤只生成 prompt，不合并结果
 ```
 
-## 后续脚本计划
+## Jury Consensus / Adjudication
+
+当前已实现：
 
 ```text
 scripts/79_merge_ai_jury_results.py
+make ai-jury-merge RUN_ROOT=...
 ```
 
-Makefile 计划：
+该步骤读取：
 
-```bash
-make ai-jury-merge RUN_ROOT=...
+```text
+ai/jury/AI_JURY_PROMPT_PACK.json
+ai/reviewers/<reviewer_id>/AI_TRIAGE_RESULT.json
+```
+
+并生成：
+
+```text
+ai/consensus/AI_TRIAGE_CONSENSUS.json
+ai/consensus/AI_TRIAGE_CONSENSUS.md
+ai/consensus/AI_TRIAGE_DISAGREEMENTS.md
+ai/consensus/AI_TRIAGE_ADJUDICATION_PROMPT.md
+```
+
+状态：
+
+```text
+awaiting_reviewer_results   reviewer 结果尚未写完
+failed                      reviewer 结果 JSON 无效或 candidate_id 重复
+ready_for_adjudication      存在分歧或高风险 FP QC，需要仲裁
+consensus_ready             reviewer 一致，无需仲裁
+```
+
+该步骤不会写最终 `ai/AI_TRIAGE_RESULT.json`，也不会进入 merge / delivery。最终结果生成会在后续步骤实现。
+
+## 后续脚本计划
+
+```text
+生成最终 AI_TRIAGE_RESULT.json 的 jury finalizer
 ```

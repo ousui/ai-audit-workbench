@@ -120,16 +120,53 @@ ai/AI_TRIAGE_QUALITY_RESULT.md
 
 STUB triage 仅用于流程验证，quality gate 会允许通过但写入 warning。
 
-## 后续脚本计划
+## Jury Prompt Pack
+
+当前已实现：
 
 ```text
 scripts/78_build_ai_jury_prompts.py
+make ai-jury-prompts RUN_ROOT=... AI_JURY_PROFILE=balanced
+```
+
+该步骤读取：
+
+```text
+ai/AI_TRIAGE_INPUT.json
+spec/ai/jury-profiles.yaml
+```
+
+并生成：
+
+```text
+ai/AI_JURY_ORCHESTRATOR_PROMPT.md
+ai/jury/AI_JURY_PROMPT_PACK.json
+ai/jury/AI_JURY_PROMPT_PACK.md
+ai/reviewers/<reviewer_id>/PROMPT.md
+```
+
+每个 reviewer prompt 会指定自己的输出路径：
+
+```text
+ai/reviewers/<reviewer_id>/AI_TRIAGE_RESULT.json
+```
+
+规则：
+
+```text
+reviewer 必须独立判断
+不得读取其他 reviewer 的结果
+当前步骤只生成 prompt，不合并结果
+```
+
+## 后续脚本计划
+
+```text
 scripts/79_merge_ai_jury_results.py
 ```
 
 Makefile 计划：
 
 ```bash
-make ai-jury-prompts RUN_ROOT=... AI_JURY_PROFILE=balanced
 make ai-jury-merge RUN_ROOT=...
 ```

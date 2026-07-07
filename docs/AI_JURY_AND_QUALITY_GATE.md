@@ -193,10 +193,45 @@ ready_for_adjudication      存在分歧或高风险 FP QC，需要仲裁
 consensus_ready             reviewer 一致，无需仲裁
 ```
 
-该步骤不会写最终 `ai/AI_TRIAGE_RESULT.json`，也不会进入 merge / delivery。最终结果生成会在后续步骤实现。
+该步骤不会写最终 `ai/AI_TRIAGE_RESULT.json`，也不会进入 merge / delivery。
 
-## 后续脚本计划
+## Jury Finalizer
+
+当前已实现：
 
 ```text
-生成最终 AI_TRIAGE_RESULT.json 的 jury finalizer
+scripts/79_finalize_ai_jury_result.py
+make ai-jury-finalize RUN_ROOT=...
+```
+
+该步骤读取：
+
+```text
+ai/consensus/AI_TRIAGE_CONSENSUS.json
+ai/consensus/AI_TRIAGE_ADJUDICATION_RESULT.json   # 如果 consensus 要求仲裁
+ai/reviewers/<reviewer_id>/AI_TRIAGE_RESULT.json
+```
+
+并生成最终：
+
+```text
+ai/AI_TRIAGE_RESULT.json
+ai/jury/AI_JURY_FINALIZATION_RESULT.json
+ai/jury/AI_JURY_FINALIZATION_RESULT.md
+```
+
+规则：
+
+```text
+consensus_ready：使用 consensus 中一致的 reviewer 结果生成最终 AI_TRIAGE_RESULT
+ready_for_adjudication：必须先有 AI_TRIAGE_ADJUDICATION_RESULT.json，再生成最终 AI_TRIAGE_RESULT
+awaiting_reviewer_results / failed：不生成最终 AI_TRIAGE_RESULT
+```
+
+finalize 后继续执行：
+
+```bash
+make ai-triage-validate RUN_ROOT=...
+make ai-triage-quality RUN_ROOT=...
+make after-ai-triage RUN_ROOT=...
 ```

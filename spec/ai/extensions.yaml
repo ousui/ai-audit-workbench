@@ -1,0 +1,126 @@
+schema_version: ai-extensions-0.1.0
+status: draft_locked
+
+principles:
+  - AI extensions are optional audit enhancers. The workbench must remain usable without them.
+  - AI extensions are not deterministic tool-matrix tools; their outputs are advisory until validated or merged through the audit workflow.
+  - Each extension output must declare its source, limitations, input references, output references, and whether it produced candidates, reviewer judgments, threat-model hints, coverage hints, or validation hints.
+  - Extension results must not overwrite tool evidence, current code facts, or human-confirmed decisions.
+  - Extension importers may be implemented later. Current stage only reserves interfaces and vocabulary.
+
+layer_position:
+  tool_matrix_layer:
+    meaning_zh: 稳定扫描器，偏事实输出，可回归。
+  ai_triage_layer:
+    meaning_zh: 当前 file-based AI triage，一次性生成审计判断。
+  ai_jury_layer:
+    meaning_zh: 多 reviewer、多角色、多模型一致性和仲裁。
+  ai_extension_layer:
+    meaning_zh: Codex Security、Claude Skill、Cursor Rule、自定义 Agent 等增强审计来源。
+
+extension_types:
+  candidate_source:
+    meaning_zh: 发现新的风险候选。
+  reviewer:
+    meaning_zh: 审阅已有候选并给出 decision、reason、proof gaps。
+  threat_modeler:
+    meaning_zh: 生成资产、入口点、信任边界、安全不变量等威胁模型提示。
+  coverage_analyzer:
+    meaning_zh: 分析已覆盖和未覆盖的代码面、入口面、工具阻断面和 proof gaps。
+  adjudicator:
+    meaning_zh: 对 reviewer 分歧、高风险 FP、关键 FIND 做仲裁。
+  validator:
+    meaning_zh: 生成 bounded validation / CHK 建议，当前不自动执行。
+  report_enhancer:
+    meaning_zh: 提供报告摘要、修复建议、影响说明增强。
+
+known_extension_families:
+  codex_security:
+    label: Codex Security plugin
+    status: planned_import_only
+    expected_artifacts:
+      - report.md
+      - scan-manifest.json
+      - findings.json
+      - coverage.json
+      - findings.sarif
+      - findings.csv
+    planned_import_roles:
+      - candidate_source
+      - reviewer
+      - coverage_analyzer
+      - threat_modeler
+  claude_skill:
+    label: Claude Code / Claude Skill
+    status: planned_adapter
+    planned_import_roles:
+      - reviewer
+      - adjudicator
+      - threat_modeler
+  cursor_rule:
+    label: Cursor rule / Agent rule
+    status: planned_adapter
+    planned_import_roles:
+      - reviewer
+      - report_enhancer
+  custom_agent:
+    label: Custom internal audit agent
+    status: planned_adapter
+    planned_import_roles:
+      - candidate_source
+      - reviewer
+      - validator
+
+standard_result_contract:
+  required_fields:
+    - schema_version
+    - extension_id
+    - extension_type
+    - provider
+    - agent_name
+    - run_ref
+    - input_refs
+    - output_refs
+    - summary
+  optional_fields:
+    - model
+    - reasoning_level
+    - plugin_or_skill_version
+    - command
+    - limitations
+    - coverage_refs
+    - threat_model_refs
+    - candidate_refs
+    - new_candidates
+    - reviewer_results
+    - findings
+    - false_positive_notes
+    - proof_gaps
+    - knowledge_update_suggestions
+    - confidence
+    - created_at
+
+reserved_paths:
+  run_extension_root: ai/extensions
+  examples:
+    - ai/extensions/codex-security/EXTENSION_RESULT.json
+    - ai/extensions/claude-skill/EXTENSION_RESULT.json
+    - ai/extensions/custom-agent/EXTENSION_RESULT.json
+
+future_make_targets:
+  - make import-codex-security RUN_ROOT=... CODEX_SECURITY_SCAN_DIR=...
+  - make ai-extension-import RUN_ROOT=... EXTENSION_ID=...
+  - make ai-triage-run RUN_ROOT=... AI_PROVIDER=codex
+  - make ai-triage-run RUN_ROOT=... AI_PROVIDER=claude_code
+
+current_stage:
+  implementation: placeholder_only
+  allowed_actions:
+    - define_spec
+    - document_interface
+    - reference_from_roadmap
+  disallowed_actions:
+    - auto_call_ai_cli
+    - auto_call_ai_api
+    - auto_promote_extension_findings
+    - auto_promote_knowledge

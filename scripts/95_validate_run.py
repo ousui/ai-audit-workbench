@@ -24,6 +24,7 @@ REQUIRED_FILES = [
     "ai/AI_TRIAGE_HANDOFF.md",
     "ai/AI_TRIAGE_RESULT.json",
     "ai/AI_TRIAGE_VALIDATION_RESULT.json",
+    "ai/AI_TRIAGE_QUALITY_RESULT.json",
     "merge/MERGE_RESULT.json",
     "knowledge/KB_UPDATE_SUGGESTIONS.json",
     "delivery/AUDIT_REPORT.md",
@@ -76,6 +77,19 @@ def validate_ai_triage_validation(path: Path, errors: list[str], checks: list[di
     checks.append({"check": "ai_triage_validation", "status": status, "errors": result.get("error_count"), "warnings": result.get("warning_count")})
     if status != "passed":
         errors.append(f"AI triage validation failed: {result.get('errors')}")
+
+
+def validate_ai_triage_quality(path: Path, errors: list[str], warnings: list[str], checks: list[dict[str, Any]]) -> None:
+    result = load_json(path)
+    status = result.get("status")
+    summary = result.get("summary") or {}
+    checks.append({"check": "ai_triage_quality", "status": status, "errors": summary.get("error_count"), "warnings": summary.get("warning_count"), "fp_qc_required": summary.get("fp_qc_required_count")})
+    if status != "passed":
+        errors.append(f"AI triage quality failed: {result.get('blocking_issues')}")
+    if result.get("triage_mode") == "STUB":
+        warnings.append("AI triage quality gate accepted STUB mode for pipeline validation only.")
+    if summary.get("fp_qc_required_count", 0):
+        warnings.append(f"AI triage quality identified FP QC items: {summary.get('fp_qc_required_count')}")
 
 
 def validate_knowledge(run_root: Path, errors: list[str], warnings: list[str], checks: list[dict[str, Any]]) -> None:
@@ -149,10 +163,13 @@ def validate(run_root: Path) -> dict[str, Any]:
     candidate_path = run_root / "candidates" / "CANDIDATE_POOL.json"
     tracking_path = run_root / "delivery" / "AUDIT_TRACKING.csv"
     ai_validation_path = run_root / "ai" / "AI_TRIAGE_VALIDATION_RESULT.json"
+    ai_quality_path = run_root / "ai" / "AI_TRIAGE_QUALITY_RESULT.json"
     if candidate_path.is_file():
         validate_candidate_pool(candidate_path, errors, warnings, checks)
     if ai_validation_path.is_file():
         validate_ai_triage_validation(ai_validation_path, errors, checks)
+    if ai_quality_path.is_file():
+        validate_ai_triage_quality(ai_quality_path, errors, warnings, checks)
     validate_knowledge(run_root, errors, warnings, checks)
     if merge_path.is_file():
         validate_merge(merge_path, errors, warnings, checks)
@@ -162,7 +179,7 @@ def validate(run_root: Path) -> dict[str, Any]:
     if tracking_path.is_file():
         validate_tracking(tracking_path, errors, checks)
     status = "passed" if not errors else "failed"
-    return {"schema_version": "validation-result-0.4.0", "status": status, "error_count": len(errors), "warning_count": len(warnings), "errors": errors, "warnings": warnings, "checks": checks}
+    return {"schema_version": "validation-result-0.5.0", "status": status, "error_count": len(errors), "warning_count": len(warnings), "errors": errors, "warnings": warnings, "checks": checks}
 
 
 def render_md(result: dict[str, Any]) -> str:

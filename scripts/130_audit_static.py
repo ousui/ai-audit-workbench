@@ -151,7 +151,7 @@ def main(argv: list[str]) -> int:
     ])
 
     flow_record = {
-        "schema_version": "audit-static-flow-0.8.0",
+        "schema_version": "audit-static-flow-0.9.0",
         "status": "running",
         "run_root": str(run_root),
         "project_path": str(project_path),
@@ -183,6 +183,7 @@ def main(argv: list[str]) -> int:
     tail_steps: list[tuple[str, list[str]]] = [
         ("ai-triage", [sys.executable, "scripts/70_prepare_ai_triage.py", "--run-root", str(run_root), "--print-summary", "--write-stub"]),
         ("ai-triage-validate", [sys.executable, "scripts/76_validate_ai_triage.py", "--run-root", str(run_root), "--print-summary"]),
+        ("ai-triage-quality", [sys.executable, "scripts/77_review_ai_triage_quality.py", "--run-root", str(run_root), "--print-summary"]),
         ("merge", [sys.executable, "scripts/80_merge_results.py", "--run-root", str(run_root), "--print-summary"]),
         ("kb-suggestions", [sys.executable, "scripts/85_collect_kb_suggestions.py", "--run-root", str(run_root), "--print-summary"]),
         ("delivery", [sys.executable, "scripts/90_render_delivery.py", "--run-root", str(run_root), "--print-summary"]),

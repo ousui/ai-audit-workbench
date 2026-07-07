@@ -30,11 +30,17 @@ REQUIRED_FILES = [
     "delivery/AUDIT_REPORT.md",
     "delivery/AUDIT_REPORT.html",
     "delivery/AUDIT_TRACKING.csv",
+    "delivery/AUDIT_QUALITY_ITEMS.csv",
+    "delivery/AUDIT_QUALITY_SUMMARY.json",
+    "delivery/AUDIT_QUALITY_SUMMARY.md",
     "delivery/DELIVERY_RECORD.json",
 ]
 CANDIDATE_INITIAL_STATUSES = {"CAND", "REVIEW", "RUNTIME", "BLOCKED"}
 MERGE_STATUSES = {"CAND", "REVIEW", "FIND", "FP", "RUNTIME", "BLOCKED"}
+BUSINESS_TRACKING_STATUSES = {"FIND", "REVIEW", "RUNTIME", "BLOCKED"}
+QUALITY_TRACKING_STATUSES = {"FP", "CAND"}
 REQUIRED_TRACKING_HEADERS = {"finding_id", "candidate_id", "audit_status", "business_status", "verification_status", "risk_parent", "risk_subtype", "tags"}
+REQUIRED_QUALITY_HEADERS = {"item_id", "candidate_id", "audit_status", "quality_scope", "risk_parent", "risk_subtype", "qc_required"}
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -134,18 +140,52 @@ def validate_merge(path: Path, errors: list[str], warnings: list[str], checks: l
                 errors.append(f"FIND must default business_status/verification_status to PENDING: {item.get('risk_id')}")
 
 
+def read_csv_rows(path: Path) -> tuple[set[str], list[dict[str, str]]]:
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        headers = set(reader.fieldnames or [])
+        return headers, [dict(row) for row in reader]
+
+
 def validate_tracking(path: Path, errors: list[str], checks: list[dict[str, Any]]) -> None:
     try:
-        with path.open("r", encoding="utf-8", newline="") as handle:
-            reader = csv.reader(handle)
-            headers = set(next(reader, []))
+        headers, rows = read_csv_rows(path)
     except Exception as exc:
         errors.append(f"failed to read tracking csv: {exc}")
         return
     missing = REQUIRED_TRACKING_HEADERS - headers
     if missing:
         errors.append("tracking csv missing lifecycle headers: " + ", ".join(sorted(missing)))
-    checks.append({"check": "tracking_lifecycle_headers", "status": "ok" if not missing else "failed", "missing": sorted(missing)})
+    invalid_statuses = sorted({row.get("audit_status") or "" for row in rows if (row.get("audit_status") or "") not in BUSINESS_TRACKING_STATUSES})
+    if invalid_statuses:
+        errors.append("business tracking csv contains non-business audit_status: " + ", ".join(invalid_statuses))
+    checks.append({"check": "tracking_lifecycle_headers", "status": "ok" if not missing else "failed", "missing": sorted(missing), "rows": len(rows)})
+    checks.append({"check": "tracking_business_only", "status": "ok" if not invalid_statuses else "failed", "invalid_statuses": invalid_statuses})
+
+
+def validate_quality_items(path: Path, errors: list[str], checks: list[dict[str, Any]]) -> None:
+    try:
+        headers, rows = read_csv_rows(path)
+    except Exception as exc:
+        errors.append(f"failed to read audit quality items csv: {exc}")
+        return
+    missing = REQUIRED_QUALITY_HEADERS - headers
+    if missing:
+        errors.append("audit quality items csv missing headers: " + ", ".join(sorted(missing)))
+    invalid_statuses = sorted({row.get("audit_status") or "" for row in rows if (row.get("audit_status") or "") not in QUALITY_TRACKING_STATUSES})
+    if invalid_statuses:
+        errors.append("audit quality items csv contains business audit_status: " + ", ".join(invalid_statuses))
+    checks.append({"check": "audit_quality_items_headers", "status": "ok" if not missing else "failed", "missing": sorted(missing), "rows": len(rows)})
+    checks.append({"check": "audit_quality_items_scope", "status": "ok" if not invalid_statuses else "failed", "invalid_statuses": invalid_statuses})
+
+
+def validate_quality_summary(path: Path, errors: list[str], checks: list[dict[str, Any]]) -> None:
+    result = load_json(path)
+    if result.get("schema_version") != "audit-quality-summary-0.1.0":
+        errors.append("AUDIT_QUALITY_SUMMARY schema_version mismatch")
+    business = result.get("business_delivery") or {}
+    quality = result.get("audit_quality") or {}
+    checks.append({"check": "audit_quality_summary", "status": "ok", "business_tracking_rows": business.get("tracking_rows"), "quality_item_rows": quality.get("quality_item_rows")})
 
 
 def validate(run_root: Path) -> dict[str, Any]:
@@ -162,6 +202,8 @@ def validate(run_root: Path) -> dict[str, Any]:
     delivery_record_path = run_root / "delivery" / "DELIVERY_RECORD.json"
     candidate_path = run_root / "candidates" / "CANDIDATE_POOL.json"
     tracking_path = run_root / "delivery" / "AUDIT_TRACKING.csv"
+    quality_items_path = run_root / "delivery" / "AUDIT_QUALITY_ITEMS.csv"
+    quality_summary_path = run_root / "delivery" / "AUDIT_QUALITY_SUMMARY.json"
     ai_validation_path = run_root / "ai" / "AI_TRIAGE_VALIDATION_RESULT.json"
     ai_quality_path = run_root / "ai" / "AI_TRIAGE_QUALITY_RESULT.json"
     if candidate_path.is_file():
@@ -175,11 +217,17 @@ def validate(run_root: Path) -> dict[str, Any]:
         validate_merge(merge_path, errors, warnings, checks)
     if delivery_record_path.is_file():
         record = load_json(delivery_record_path)
-        checks.append({"check": "delivery_record", "status": "ok", "tracking_rows": record.get("tracking_rows")})
+        checks.append({"check": "delivery_record", "status": "ok", "tracking_rows": record.get("tracking_rows"), "audit_quality_rows": record.get("audit_quality_rows"), "tracking_policy": record.get("tracking_policy")})
+        if record.get("tracking_policy") != "business_action_items_only":
+            errors.append("delivery record tracking_policy must be business_action_items_only")
     if tracking_path.is_file():
         validate_tracking(tracking_path, errors, checks)
+    if quality_items_path.is_file():
+        validate_quality_items(quality_items_path, errors, checks)
+    if quality_summary_path.is_file():
+        validate_quality_summary(quality_summary_path, errors, checks)
     status = "passed" if not errors else "failed"
-    return {"schema_version": "validation-result-0.5.0", "status": status, "error_count": len(errors), "warning_count": len(warnings), "errors": errors, "warnings": warnings, "checks": checks}
+    return {"schema_version": "validation-result-0.6.0", "status": status, "error_count": len(errors), "warning_count": len(warnings), "errors": errors, "warnings": warnings, "checks": checks}
 
 
 def render_md(result: dict[str, Any]) -> str:

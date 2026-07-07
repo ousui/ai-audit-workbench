@@ -31,6 +31,8 @@
       "knowledge/KB_UPDATE_SUGGESTIONS.json",
       "delivery/AUDIT_REPORT.md",
       "delivery/AUDIT_TRACKING.csv",
+      "delivery/AUDIT_QUALITY_ITEMS.csv",
+      "delivery/AUDIT_QUALITY_SUMMARY.json",
       "validate/VALIDATION_RESULT.json"
     ]
   }

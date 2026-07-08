@@ -7,3 +7,10 @@
 ## 是否提交
 
 提交到 Git。schema 是工作台协议的一部分。
+
+## 当前 schema
+
+```text
+AI_TRIAGE_RESULT.schema.json       AI triage / AI Jury 最终判断结果
+AI_DEEP_REVIEW_RESULT.schema.json  AI Deep Review 候选发现结果
+```

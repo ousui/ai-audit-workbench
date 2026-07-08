@@ -35,6 +35,7 @@ REQUIRED_FILES = [
     "spec/rules/audit-lifecycle.yaml",
     "spec/rules/audit-knowledge.yaml",
     "spec/rules/project-doc-fields.yaml",
+    "spec/rules/threat-model.yaml",
     "spec/delivery/README.md",
     "spec/delivery/delivery-profile.default.yaml",
     "spec/delivery/delivery-profile.schema.json",
@@ -71,6 +72,8 @@ COMPILE_SCRIPTS = [
     "scripts/50_run_static_tools.py",
     "scripts/60_build_candidates.py",
     "scripts/65_match_knowledge.py",
+    "scripts/66_build_threat_model.py",
+    "scripts/67_build_coverage_map.py",
     "scripts/70_prepare_ai_triage.py",
     "scripts/72_build_context_pack.py",
     "scripts/74_prepare_deep_explore.py",
@@ -156,7 +159,7 @@ def main(argv: list[str]) -> int:
         smoke_errors, smoke_warnings = check_smoke()
         errors.extend(smoke_errors)
         warnings.extend(smoke_warnings)
-    result: dict[str, Any] = {"schema_version": "layout-verify-result-1.5.0", "status": "passed" if not errors else "failed", "error_count": len(errors), "warning_count": len(warnings), "errors": errors, "warnings": warnings}
+    result: dict[str, Any] = {"schema_version": "layout-verify-result-1.6.0", "status": "passed" if not errors else "failed", "error_count": len(errors), "warning_count": len(warnings), "errors": errors, "warnings": warnings}
     out = ROOT / "var" / "tmp" / "layout-verify"
     out.mkdir(parents=True, exist_ok=True)
     (out / "LAYOUT_VERIFY_RESULT.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

@@ -81,16 +81,18 @@ M18         团队化、CLI adapter、CI/CD、插件导入和 issue tracking
 3. M15.5A：Threat Model 识别 assets / entrypoints / trust_boundaries / review_focus
 4. M15.5A：Coverage Map 识别 dimensions / risk_parent_coverage / coverage_gaps / ai_deep_review_priorities
 5. M15.5A：接入 audit-static / validate-run / benchmark / docs
+6. M15.5B：生成 AI_DEEP_REVIEW_INPUT.json 和 AI_DEEP_REVIEW_PROMPT.md
+7. M15.5B：定义 AI_DEEP_REVIEW_RESULT schema 并增加结果校验
+8. M15.5B：接入 audit-static / validate-run / benchmark / docs
 ```
 
 待做：
 
 ```text
-1. M15.5B：AI Deep Review file-based scaffold
-2. M15.5C：导入 AI Deep Review 候选
-3. M15.5D：Candidate claim model：claim、attacker_source、entrypoint、trust_boundary、root_control、sink
-4. M15.5E：Attack path fields：reachable_path、evidence_for、evidence_against、proof_gaps、validation_method
-5. AI triage prompt / schema / merge / report 逐步接入这些字段
+1. M15.5C：导入 AI Deep Review 候选
+2. M15.5D：Candidate claim model：claim、attacker_source、entrypoint、trust_boundary、root_control、sink
+3. M15.5E：Attack path fields：reachable_path、evidence_for、evidence_against、proof_gaps、validation_method
+4. AI triage prompt / schema / merge / report 逐步接入这些字段
 ```
 
 ## M15.6：AI Extension / Plugin Layer

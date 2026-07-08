@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://bdg.local/ai-audit-workbench/spec/schemas/AI_DEEP_REVIEW_RESULT.schema.json",
+  "title": "AI Deep Review Result",
+  "type": "object",
+  "required": ["schema_version", "review_mode", "items"],
+  "properties": {
+    "schema_version": {"const": "ai-deep-review-result-0.1.0"},
+    "review_mode": {"const": "AI_DEEP_REVIEW"},
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["deep_review_id", "title", "risk_parent", "risk_subtype", "claim", "evidence", "proof_gaps"],
+        "properties": {
+          "deep_review_id": {"type": "string"},
+          "risk_type": {"type": "string"},
+          "risk_parent": {"type": "string"},
+          "risk_subtype": {"type": "string"},
+          "title": {"type": "string"},
+          "severity_hint": {"enum": ["P0", "P1", "P2", "P3", "P4"]},
+          "confidence_hint": {"enum": ["high", "medium", "low"]},
+          "file_path": {"type": ["string", "null"]},
+          "line_start": {"type": ["integer", "null"]},
+          "line_end": {"type": ["integer", "null"]},
+          "claim": {"type": "string"},
+          "entrypoint": {"type": ["string", "null"]},
+          "attacker_source": {"type": ["string", "null"]},
+          "trust_boundary": {"type": ["string", "null"]},
+          "sink": {"type": ["string", "null"]},
+          "evidence": {"type": "string"},
+          "risk_chain": {"type": ["string", "null"]},
+          "impact": {"type": ["string", "null"]},
+          "evidence_for": {"type": "array", "items": {"type": "string"}},
+          "evidence_against": {"type": "array", "items": {"type": "string"}},
+          "proof_gaps": {"type": "array", "items": {"type": "string"}},
+          "suggested_validation_method": {"type": ["string", "null"]},
+          "tags": {"type": "array", "items": {"type": "string"}},
+          "notes": {"type": "array", "items": {"type": "string"}}
+        },
+        "additionalProperties": true
+      }
+    },
+    "knowledge_update_suggestions": {"type": "array"},
+    "notes": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": true
+}

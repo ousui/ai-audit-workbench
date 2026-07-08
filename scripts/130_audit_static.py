@@ -117,6 +117,7 @@ def main(argv: list[str]) -> int:
     tool_matrix = str(SPEC_ENV / "TOOL_MATRIX.yaml")
     tool_matrix_ext = str(SPEC_ENV / "TOOL_MATRIX_EXTENSIONS.yaml")
     recipes = str(SPEC_RULES / "candidate-recipes.yaml")
+    threat_rules = str(SPEC_RULES / "threat-model.yaml")
     assisted_enabled = args.assisted_change != "none"
 
     steps: list[tuple[str, list[str]]] = [
@@ -148,10 +149,12 @@ def main(argv: list[str]) -> int:
         ("candidate-pool", [sys.executable, "scripts/60_build_candidates.py", "--run-root", str(run_root), "--print-summary"]),
         ("merge-external-candidates", [sys.executable, "scripts/35_merge_external_candidates.py", "--run-root", str(run_root), "--print-summary"]),
         ("knowledge-match", [sys.executable, "scripts/65_match_knowledge.py", "--run-root", str(run_root), "--print-summary"]),
+        ("threat-model", [sys.executable, "scripts/66_build_threat_model.py", "--run-root", str(run_root), "--rules", threat_rules, "--print-summary"]),
+        ("coverage-map", [sys.executable, "scripts/67_build_coverage_map.py", "--run-root", str(run_root), "--print-summary"]),
     ])
 
     flow_record = {
-        "schema_version": "audit-static-flow-0.9.0",
+        "schema_version": "audit-static-flow-1.0.0",
         "status": "running",
         "run_root": str(run_root),
         "project_path": str(project_path),

@@ -26,6 +26,8 @@
       "threat/THREAT_MODEL.md",
       "coverage/COVERAGE_MAP.json",
       "coverage/COVERAGE_MAP.md",
+      "ai/deep-review/AI_DEEP_REVIEW_INPUT.json",
+      "ai/deep-review/AI_DEEP_REVIEW_PROMPT.md",
       "ai/AI_TRIAGE_INPUT.json",
       "ai/AI_TRIAGE_HANDOFF.md",
       "ai/AI_TRIAGE_RESULT.json",

@@ -46,6 +46,7 @@ REQUIRED_FILES = [
     "spec/prompts/triage/FAST_STATIC.md",
     "spec/schemas/README.md",
     "spec/schemas/AI_TRIAGE_RESULT.schema.json",
+    "spec/schemas/AI_DEEP_REVIEW_RESULT.schema.json",
     "spec/workflows/README.md",
     "spec/debug/README.md",
 ]
@@ -74,6 +75,8 @@ COMPILE_SCRIPTS = [
     "scripts/65_match_knowledge.py",
     "scripts/66_build_threat_model.py",
     "scripts/67_build_coverage_map.py",
+    "scripts/68_prepare_ai_deep_review.py",
+    "scripts/69_validate_ai_deep_review.py",
     "scripts/70_prepare_ai_triage.py",
     "scripts/72_build_context_pack.py",
     "scripts/74_prepare_deep_explore.py",
@@ -159,7 +162,7 @@ def main(argv: list[str]) -> int:
         smoke_errors, smoke_warnings = check_smoke()
         errors.extend(smoke_errors)
         warnings.extend(smoke_warnings)
-    result: dict[str, Any] = {"schema_version": "layout-verify-result-1.6.0", "status": "passed" if not errors else "failed", "error_count": len(errors), "warning_count": len(warnings), "errors": errors, "warnings": warnings}
+    result: dict[str, Any] = {"schema_version": "layout-verify-result-1.7.0", "status": "passed" if not errors else "failed", "error_count": len(errors), "warning_count": len(warnings), "errors": errors, "warnings": warnings}
     out = ROOT / "var" / "tmp" / "layout-verify"
     out.mkdir(parents=True, exist_ok=True)
     (out / "LAYOUT_VERIFY_RESULT.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

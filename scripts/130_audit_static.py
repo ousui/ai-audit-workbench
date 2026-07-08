@@ -151,10 +151,11 @@ def main(argv: list[str]) -> int:
         ("knowledge-match", [sys.executable, "scripts/65_match_knowledge.py", "--run-root", str(run_root), "--print-summary"]),
         ("threat-model", [sys.executable, "scripts/66_build_threat_model.py", "--run-root", str(run_root), "--rules", threat_rules, "--print-summary"]),
         ("coverage-map", [sys.executable, "scripts/67_build_coverage_map.py", "--run-root", str(run_root), "--print-summary"]),
+        ("ai-deep-review-input", [sys.executable, "scripts/68_prepare_ai_deep_review.py", "--run-root", str(run_root), "--print-summary"]),
     ])
 
     flow_record = {
-        "schema_version": "audit-static-flow-1.0.0",
+        "schema_version": "audit-static-flow-1.1.0",
         "status": "running",
         "run_root": str(run_root),
         "project_path": str(project_path),
@@ -178,8 +179,9 @@ def main(argv: list[str]) -> int:
         print("")
         print("AUDIT_STATIC flow paused for file-based AI triage.")
         print(f"Run root: {run_root}")
-        print(f"Handoff: {run_root / 'ai' / 'AI_TRIAGE_HANDOFF.md'}")
-        print("Next: write ai/AI_TRIAGE_RESULT.json, then run:")
+        print(f"AI Deep Review prompt: {run_root / 'ai' / 'deep-review' / 'AI_DEEP_REVIEW_PROMPT.md'}")
+        print(f"AI triage handoff: {run_root / 'ai' / 'AI_TRIAGE_HANDOFF.md'}")
+        print("Next: optionally write ai/deep-review/AI_DEEP_REVIEW_RESULT.json and validate it, then write ai/AI_TRIAGE_RESULT.json and run:")
         print(f"  make after-ai-triage RUN_ROOT={run_root}")
         return 0
 

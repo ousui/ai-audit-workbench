@@ -20,6 +20,10 @@ REQUIRED_FILES = [
     "evidence/TOOL_RUN_RESULT.json",
     "candidates/CANDIDATE_POOL.json",
     "knowledge/KB_HITS.json",
+    "threat/THREAT_MODEL.json",
+    "threat/THREAT_MODEL.md",
+    "coverage/COVERAGE_MAP.json",
+    "coverage/COVERAGE_MAP.md",
     "ai/AI_TRIAGE_INPUT.json",
     "ai/AI_TRIAGE_HANDOFF.md",
     "ai/AI_TRIAGE_RESULT.json",
@@ -86,6 +90,33 @@ def validate_candidate_pool(path: Path, errors: list[str], warnings: list[str], 
     if missing_taxonomy:
         warnings.append("candidate pool has candidates missing taxonomy: " + ", ".join([str(x) for x in missing_taxonomy[:20]]))
     checks.append({"check": "candidate_lifecycle_fields", "status": "ok" if not bad_status and not missing_events else "failed", "candidates": len(pool.get("candidates", []))})
+
+
+def validate_threat_model(path: Path, errors: list[str], checks: list[dict[str, Any]]) -> None:
+    result = load_json(path)
+    if result.get("schema_version") != "threat-model-0.1.0":
+        errors.append("THREAT_MODEL schema_version mismatch")
+    summary = result.get("summary") or {}
+    if not isinstance(result.get("assets"), list):
+        errors.append("THREAT_MODEL assets must be list")
+    if not isinstance(result.get("entrypoints"), list):
+        errors.append("THREAT_MODEL entrypoints must be list")
+    if not isinstance(result.get("trust_boundaries"), list):
+        errors.append("THREAT_MODEL trust_boundaries must be list")
+    checks.append({"check": "threat_model", "status": "ok", "assets": summary.get("asset_count"), "entrypoints": summary.get("entrypoint_count"), "trust_boundaries": summary.get("trust_boundary_count")})
+
+
+def validate_coverage_map(path: Path, errors: list[str], warnings: list[str], checks: list[dict[str, Any]]) -> None:
+    result = load_json(path)
+    if result.get("schema_version") != "coverage-map-0.1.0":
+        errors.append("COVERAGE_MAP schema_version mismatch")
+    dimensions = result.get("dimensions")
+    if not isinstance(dimensions, list) or not dimensions:
+        errors.append("COVERAGE_MAP dimensions must be non-empty list")
+    summary = result.get("summary") or {}
+    if summary.get("coverage_gap_count", 0):
+        warnings.append(f"Coverage map identified gaps: {summary.get('coverage_gap_count')}")
+    checks.append({"check": "coverage_map", "status": "ok", "dimensions": summary.get("dimension_count"), "coverage_gaps": summary.get("coverage_gap_count")})
 
 
 def validate_ai_triage_validation(path: Path, errors: list[str], checks: list[dict[str, Any]]) -> None:
@@ -231,6 +262,8 @@ def validate(run_root: Path) -> dict[str, Any]:
     merge_path = run_root / "merge" / "MERGE_RESULT.json"
     delivery_record_path = run_root / "delivery" / "DELIVERY_RECORD.json"
     candidate_path = run_root / "candidates" / "CANDIDATE_POOL.json"
+    threat_path = run_root / "threat" / "THREAT_MODEL.json"
+    coverage_path = run_root / "coverage" / "COVERAGE_MAP.json"
     tracking_path = run_root / "delivery" / "AUDIT_TRACKING.csv"
     quality_items_path = run_root / "delivery" / "AUDIT_QUALITY_ITEMS.csv"
     quality_summary_path = run_root / "delivery" / "AUDIT_QUALITY_SUMMARY.json"
@@ -239,6 +272,10 @@ def validate(run_root: Path) -> dict[str, Any]:
     ai_quality_path = run_root / "ai" / "AI_TRIAGE_QUALITY_RESULT.json"
     if candidate_path.is_file():
         validate_candidate_pool(candidate_path, errors, warnings, checks)
+    if threat_path.is_file():
+        validate_threat_model(threat_path, errors, checks)
+    if coverage_path.is_file():
+        validate_coverage_map(coverage_path, errors, warnings, checks)
     if ai_validation_path.is_file():
         validate_ai_triage_validation(ai_validation_path, errors, checks)
     if ai_quality_path.is_file():
@@ -264,7 +301,7 @@ def validate(run_root: Path) -> dict[str, Any]:
         if stats_path.is_file():
             validate_stats_csv(stats_path, required, errors, checks)
     status = "passed" if not errors else "failed"
-    return {"schema_version": "validation-result-0.7.0", "status": status, "error_count": len(errors), "warning_count": len(warnings), "errors": errors, "warnings": warnings, "checks": checks}
+    return {"schema_version": "validation-result-0.8.0", "status": status, "error_count": len(errors), "warning_count": len(warnings), "errors": errors, "warnings": warnings, "checks": checks}
 
 
 def render_md(result: dict[str, Any]) -> str:

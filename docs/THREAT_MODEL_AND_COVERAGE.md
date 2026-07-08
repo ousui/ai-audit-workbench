@@ -20,58 +20,98 @@
 该模式是否真的跨越信任边界、可被攻击者触发、到达危险 sink、造成实际影响？
 ```
 
+## M15.5A 已实现：Threat Model / Coverage 基础产物
+
+当前已实现：
+
+```text
+scripts/66_build_threat_model.py
+scripts/67_build_coverage_map.py
+spec/rules/threat-model.yaml
+
+make threat-model RUN_ROOT=...
+make coverage-map RUN_ROOT=...
+```
+
+输出：
+
+```text
+threat/THREAT_MODEL.json
+threat/THREAT_MODEL.md
+coverage/COVERAGE_MAP.json
+coverage/COVERAGE_MAP.md
+```
+
+定位：
+
+```text
+Threat Model  识别资产、入口和信任边界
+Coverage Map 识别覆盖维度、风险大类覆盖、覆盖缺口和 AI Deep Review 优先级
+```
+
+它们都是静态、只读、辅助性产物，不直接证明漏洞成立。
+
 ## Threat Model
 
-建议产物：
+字段：
 
 ```text
-audit-map/THREAT_MODEL.json
-audit-map/THREAT_MODEL.md
+assets              资产，例如账号权限、业务交易、数据存储、文件存储、配置密钥
+entrypoints         入口，例如 HTTP/API、前端 API 调用、异步回调
+trust_boundaries    信任边界，例如外部到服务端、认证到授权、服务端到数据库
+review_focus        后续 AI Deep Review 的审计关注点
 ```
 
-建议字段：
+生成依据：
 
 ```text
-assets                  资产
-entry_points            入口点
-trust_boundaries        信任边界
-security_invariants     安全不变量
-sensitive_actions       敏感动作
-external_services       外部服务
-auth_session_model      认证与会话模型
-file_surfaces           上传、下载、路径处理面
-admin_surfaces          管理后台和高权限操作
-payment_or_fund_surfaces 资金、积分、订单等业务资产
+audit-map/AUDIT_MAP.json
+audit-map/PROJECT_FACTS.json
+audit-map/PROJECT_DOC_PROFILE.json
+candidates/CANDIDATE_POOL.json
+spec/rules/threat-model.yaml
 ```
 
-## Coverage
+## Coverage Map
 
-建议产物：
-
-```text
-evidence/COVERAGE.json
-evidence/COVERAGE.md
-```
-
-建议字段：
+字段：
 
 ```text
-reviewed_surfaces       已覆盖面
-deferred_surfaces       延后覆盖面
-out_of_scope            明确排除范围
-tool_blocked_areas      工具阻断区域
-proof_gaps              证据缺口
-unresolved_entrypoints  未解析入口点
-manual_review_needed    需要人工确认的点
+dimensions                  route/auth/data/file/high-risk/config 等覆盖维度
+risk_parent_coverage         风险大类覆盖情况
+coverage_gaps                覆盖缺口
+ai_deep_review_priorities    AI Deep Review 优先审计方向
 ```
 
 Coverage 的作用是说明：
 
 ```text
 这轮审计看过什么
-没有看什么
-为什么没看
-哪些风险仍然缺证据
+哪些维度有候选覆盖
+哪些维度只有审计地图证据但没有候选
+哪些位置应该交给 AI Deep Review 主动翻代码
+```
+
+## AI Deep Review 的位置
+
+后续 AI Deep Review 会使用：
+
+```text
+THREAT_MODEL
+COVERAGE_MAP
+CANDIDATE_POOL
+KB_HITS
+PROJECT_FACTS
+PROJECT_DOC_PROFILE
+```
+
+作为输入，像人工审计一样主动翻代码、看接口、看上下游链路，并补充候选。
+
+重要边界：
+
+```text
+AI Deep Review 只发现/补充候选，不直接输出最终 FIND/FP。
+Deep Review 候选仍需进入 AI triage / AI Jury 统一判断。
 ```
 
 ## Candidate Claim Model
@@ -124,9 +164,10 @@ CAND      弱线索保留，尚未充分判断
 ## 分阶段落地
 
 ```text
-M15.5A  生成基础 THREAT_MODEL / COVERAGE
-M15.5B  Candidate Pool 增加 claim fields
-M15.5C  AI triage prompt 增加 source/sink/trust boundary/proof gap 要求
-M15.5D  Merge / Report 展示 attack path 和 coverage
-M16     CHK / bounded validation 正式消化 proof gaps
+M15.5A  生成基础 THREAT_MODEL / COVERAGE              已实现
+M15.5B  AI Deep Review file-based scaffold             待做
+M15.5C  导入 AI Deep Review 候选                        待做
+M15.5D  Candidate Pool 增加 claim/source/sink/proof_gap 待做
+M15.5E  Merge / Report 展示 attack path 和 coverage     待做
+M16     CHK / bounded validation 正式消化 proof gaps    待做
 ```

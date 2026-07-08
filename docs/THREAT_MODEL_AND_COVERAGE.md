@@ -51,6 +51,39 @@ Coverage Map 识别覆盖维度、风险大类覆盖、覆盖缺口和 AI Deep R
 
 它们都是静态、只读、辅助性产物，不直接证明漏洞成立。
 
+## M15.5B 已实现：AI Deep Review file-based scaffold
+
+当前已实现：
+
+```text
+scripts/68_prepare_ai_deep_review.py
+scripts/69_validate_ai_deep_review.py
+spec/schemas/AI_DEEP_REVIEW_RESULT.schema.json
+
+make ai-deep-review-input RUN_ROOT=...
+make ai-deep-review-validate RUN_ROOT=...
+```
+
+输出：
+
+```text
+ai/deep-review/AI_DEEP_REVIEW_INPUT.json
+ai/deep-review/AI_DEEP_REVIEW_PROMPT.md
+ai/deep-review/AI_DEEP_REVIEW_RESULT.json              # 人工 / AI 工具写入
+ai/deep-review/AI_DEEP_REVIEW_VALIDATION_RESULT.json   # validate 后生成
+ai/deep-review/AI_DEEP_REVIEW_VALIDATION_RESULT.md
+```
+
+定位：
+
+```text
+AI Deep Review 是候选发现阶段，不是最终裁决阶段。
+它模拟人工审计翻代码、看接口、看上下游链路，补充潜在候选风险。
+AI Deep Review 输出不得包含最终 FIND/FP/REVIEW/RUNTIME 等 audit decision。
+```
+
+当前阶段只生成输入、提示词和结果校验；**不导入候选池**。导入候选是 M15.5C。
+
 ## Threat Model
 
 字段：
@@ -94,7 +127,7 @@ Coverage 的作用是说明：
 
 ## AI Deep Review 的位置
 
-后续 AI Deep Review 会使用：
+AI Deep Review 使用：
 
 ```text
 THREAT_MODEL
@@ -103,6 +136,7 @@ CANDIDATE_POOL
 KB_HITS
 PROJECT_FACTS
 PROJECT_DOC_PROFILE
+AUDIT_MAP focus files / signals
 ```
 
 作为输入，像人工审计一样主动翻代码、看接口、看上下游链路，并补充候选。
@@ -165,7 +199,7 @@ CAND      弱线索保留，尚未充分判断
 
 ```text
 M15.5A  生成基础 THREAT_MODEL / COVERAGE              已实现
-M15.5B  AI Deep Review file-based scaffold             待做
+M15.5B  AI Deep Review file-based scaffold             已实现
 M15.5C  导入 AI Deep Review 候选                        待做
 M15.5D  Candidate Pool 增加 claim/source/sink/proof_gap 待做
 M15.5E  Merge / Report 展示 attack path 和 coverage     待做

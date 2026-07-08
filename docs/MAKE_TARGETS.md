@@ -53,6 +53,8 @@ make tool-run RUN_ROOT=...
 make candidates RUN_ROOT=...
 make merge-external-candidates RUN_ROOT=...
 make knowledge-match RUN_ROOT=...
+make threat-model RUN_ROOT=...
+make coverage-map RUN_ROOT=...
 make ai-triage-input RUN_ROOT=...
 make ai-triage RUN_ROOT=...
 make ai-triage-validate RUN_ROOT=...
@@ -70,6 +72,8 @@ make debug-trace RUN_ROOT=... DEBUG_LEVEL=basic
 ```
 
 - `knowledge-match`：只读匹配 `local/registry/knowledge/AUDIT_KNOWLEDGE.yaml`，输出 `knowledge/KB_HITS.*`。
+- `threat-model`：生成 `threat/THREAT_MODEL.json/md`，识别资产、入口和信任边界。
+- `coverage-map`：生成 `coverage/COVERAGE_MAP.json/md`，识别覆盖维度、覆盖缺口和 AI Deep Review 优先级。
 - `ai-triage-input`：只生成 `AI_TRIAGE_INPUT.json` 和 `AI_TRIAGE_HANDOFF.md`，不生成 stub，供真实 AI file-based handoff 使用。
 - `ai-triage`：生成输入并写入 STUB 结果，仅用于流程验证。
 - `ai-triage-validate`：校验人工或 AI 写入的 `AI_TRIAGE_RESULT.json`。
@@ -82,6 +86,17 @@ make debug-trace RUN_ROOT=... DEBUG_LEVEL=basic
 - `delivery`：按 `DELIVERY_PROFILE` 生成交付报告、业务整改表、审计侧质量表、统计表和质量摘要。
 - `after-ai-triage`：在真实 AI 输出写入并通过 schema 与 quality gate 后，继续执行 merge、kb-suggestions、delivery 和 validate-run。
 - `kb-suggestions`：从 AI triage / merge 结果收集知识库更新建议，输出 `knowledge/KB_UPDATE_SUGGESTIONS.*`，不自动写入本地知识库。
+
+## Threat / Coverage outputs
+
+```text
+threat/THREAT_MODEL.json
+threat/THREAT_MODEL.md
+coverage/COVERAGE_MAP.json
+coverage/COVERAGE_MAP.md
+```
+
+这些产物是 M15.5A 的基础安全视角，只用于指导后续 AI Deep Review，不直接证明漏洞成立。
 
 ## File-based AI triage
 

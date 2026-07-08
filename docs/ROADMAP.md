@@ -73,13 +73,23 @@ M18         团队化、CLI adapter、CI/CD、插件导入和 issue tracking
 
 目标：借鉴 Codex Security plugin 的审计思想，从“规则命中”升级为“证明或推翻安全 claim”。
 
+已完成：
+
+```text
+1. M15.5A：生成基础 THREAT_MODEL.json/md
+2. M15.5A：生成基础 COVERAGE_MAP.json/md
+3. M15.5A：Threat Model 识别 assets / entrypoints / trust_boundaries / review_focus
+4. M15.5A：Coverage Map 识别 dimensions / risk_parent_coverage / coverage_gaps / ai_deep_review_priorities
+5. M15.5A：接入 audit-static / validate-run / benchmark / docs
+```
+
 待做：
 
 ```text
-1. 生成 THREAT_MODEL.json / THREAT_MODEL.md
-2. 生成 COVERAGE.json / COVERAGE.md
-3. Candidate claim model：claim、attacker_source、entrypoint、trust_boundary、root_control、sink
-4. Attack path fields：reachable_path、evidence_for、evidence_against、proof_gaps、validation_method
+1. M15.5B：AI Deep Review file-based scaffold
+2. M15.5C：导入 AI Deep Review 候选
+3. M15.5D：Candidate claim model：claim、attacker_source、entrypoint、trust_boundary、root_control、sink
+4. M15.5E：Attack path fields：reachable_path、evidence_for、evidence_against、proof_gaps、validation_method
 5. AI triage prompt / schema / merge / report 逐步接入这些字段
 ```
 

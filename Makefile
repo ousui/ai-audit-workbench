@@ -76,6 +76,8 @@ help:
 	@echo "  make knowledge-match RUN_ROOT=..."
 	@echo "  make threat-model RUN_ROOT=..."
 	@echo "  make coverage-map RUN_ROOT=..."
+	@echo "  make ai-deep-review-input RUN_ROOT=..."
+	@echo "  make ai-deep-review-validate RUN_ROOT=..."
 	@echo "  make ai-triage-input RUN_ROOT=..."
 	@echo "  make ai-triage RUN_ROOT=..."
 	@echo "  make ai-triage-validate RUN_ROOT=..."
@@ -265,6 +267,16 @@ coverage-map:
 	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required"; exit 2)
 	$(PYTHON) scripts/67_build_coverage_map.py --run-root "$(RUN_ROOT)" --print-summary
 
+.PHONY: ai-deep-review-input
+ai-deep-review-input:
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required"; exit 2)
+	$(PYTHON) scripts/68_prepare_ai_deep_review.py --run-root "$(RUN_ROOT)" --print-summary
+
+.PHONY: ai-deep-review-validate
+ai-deep-review-validate:
+	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required"; exit 2)
+	$(PYTHON) scripts/69_validate_ai_deep_review.py --run-root "$(RUN_ROOT)" --print-summary
+
 .PHONY: ai-triage-input
 ai-triage-input:
 	@test -n "$(RUN_ROOT)" || (echo "RUN_ROOT is required"; exit 2)
@@ -401,7 +413,7 @@ merge-external-candidates:
 	$(PYTHON) scripts/35_merge_external_candidates.py --run-root "$(RUN_ROOT)" --print-summary
 
 .PHONY: m14
-m14: py-compile stack-env-check tool-adapter-check tool-cache-check tool-plan-stack preflight tool-execution-plan ext-tool-run ext-tool-candidates merge-external-candidates knowledge-match threat-model coverage-map
+m14: py-compile stack-env-check tool-adapter-check tool-cache-check tool-plan-stack preflight tool-execution-plan ext-tool-run ext-tool-candidates merge-external-candidates knowledge-match threat-model coverage-map ai-deep-review-input
 	@echo "M14 validation completed."
 
 .PHONY: audit-static
@@ -433,7 +445,7 @@ clean-env:
 
 .PHONY: py-compile
 py-compile:
-	$(PYTHON) -m py_compile scripts/00_env_check.py scripts/05_check_deps.py scripts/10_run_init.py scripts/20_build_audit_map.py scripts/25_run_preflight.py scripts/26_run_assisted_change.py scripts/27_reset_assisted_change.py scripts/28_build_project_doc_profile.py scripts/30_build_tool_plan.py scripts/31_stack_env_check.py scripts/32_build_tool_execution_plan.py scripts/33_run_tool_execution_plan.py scripts/34_import_tool_candidates.py scripts/35_merge_external_candidates.py scripts/36_check_tool_adapters.py scripts/37_check_tool_cache.py scripts/38_update_tool_cache.py scripts/40_build_evidence_pack.py scripts/50_run_static_tools.py scripts/60_build_candidates.py scripts/65_match_knowledge.py scripts/66_build_threat_model.py scripts/67_build_coverage_map.py scripts/70_prepare_ai_triage.py scripts/72_build_context_pack.py scripts/74_prepare_deep_explore.py scripts/76_validate_ai_triage.py scripts/77_review_ai_triage_quality.py scripts/78_build_ai_jury_prompts.py scripts/78_check_ai_jury_status.py scripts/79_merge_ai_jury_results.py scripts/79_finalize_ai_jury_result.py scripts/80_merge_results.py scripts/85_collect_kb_suggestions.py scripts/89_validate_delivery_profile.py scripts/90_render_delivery.py scripts/95_validate_run.py scripts/100_fast_static.py scripts/110_collect_debug.py scripts/120_run_benchmark.py scripts/130_audit_static.py scripts/190_verify_layout.py scripts/99_smoke_check.py
+	$(PYTHON) -m py_compile scripts/00_env_check.py scripts/05_check_deps.py scripts/10_run_init.py scripts/20_build_audit_map.py scripts/25_run_preflight.py scripts/26_run_assisted_change.py scripts/27_reset_assisted_change.py scripts/28_build_project_doc_profile.py scripts/30_build_tool_plan.py scripts/31_stack_env_check.py scripts/32_build_tool_execution_plan.py scripts/33_run_tool_execution_plan.py scripts/34_import_tool_candidates.py scripts/35_merge_external_candidates.py scripts/36_check_tool_adapters.py scripts/37_check_tool_cache.py scripts/38_update_tool_cache.py scripts/40_build_evidence_pack.py scripts/50_run_static_tools.py scripts/60_build_candidates.py scripts/65_match_knowledge.py scripts/66_build_threat_model.py scripts/67_build_coverage_map.py scripts/68_prepare_ai_deep_review.py scripts/69_validate_ai_deep_review.py scripts/70_prepare_ai_triage.py scripts/72_build_context_pack.py scripts/74_prepare_deep_explore.py scripts/76_validate_ai_triage.py scripts/77_review_ai_triage_quality.py scripts/78_build_ai_jury_prompts.py scripts/78_check_ai_jury_status.py scripts/79_merge_ai_jury_results.py scripts/79_finalize_ai_jury_result.py scripts/80_merge_results.py scripts/85_collect_kb_suggestions.py scripts/89_validate_delivery_profile.py scripts/90_render_delivery.py scripts/95_validate_run.py scripts/100_fast_static.py scripts/110_collect_debug.py scripts/120_run_benchmark.py scripts/130_audit_static.py scripts/190_verify_layout.py scripts/99_smoke_check.py
 
 .PHONY: status
 status:

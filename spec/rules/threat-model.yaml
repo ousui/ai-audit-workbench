@@ -1,0 +1,163 @@
+schema_version: threat-model-rules-0.1.0
+
+asset_rules:
+  identities_and_accounts:
+    label_zh: 身份、账号与权限数据
+    triggers:
+      file_groups:
+        - auth_files
+      keywords:
+        - user
+        - account
+        - admin
+        - role
+        - permission
+    default_risk_parents:
+      - ACCESS_CONTROL
+      - AUTHENTICATION_SESSION
+      - DATA_PROTECTION_PRIVACY
+
+  business_transactions:
+    label_zh: 订单、支付、钱包与业务交易
+    triggers:
+      file_groups:
+        - high_risk_modules
+      keywords:
+        - order
+        - pay
+        - payment
+        - wallet
+        - withdraw
+        - refund
+        - balance
+    default_risk_parents:
+      - BUSINESS_LOGIC
+      - ACCESS_CONTROL
+
+  data_storage:
+    label_zh: 数据库、持久化与检索数据
+    triggers:
+      file_groups:
+        - data_access_files
+      keywords:
+        - mapper
+        - repository
+        - dao
+        - model
+        - entity
+        - database
+    default_risk_parents:
+      - INPUT_INJECTION
+      - DATA_PROTECTION_PRIVACY
+
+  file_and_object_storage:
+    label_zh: 文件、上传下载与对象存储
+    triggers:
+      file_groups:
+        - file_io_files
+      keywords:
+        - upload
+        - download
+        - file
+        - storage
+        - oss
+        - s3
+        - minio
+    default_risk_parents:
+      - FILE_OPERATION
+      - DATA_PROTECTION_PRIVACY
+
+  config_and_secrets:
+    label_zh: 配置、密钥与运行环境
+    triggers:
+      file_groups:
+        - configs
+        - manifests
+      keywords:
+        - config
+        - secret
+        - token
+        - ak
+        - sk
+        - env
+    default_risk_parents:
+      - CRYPTOGRAPHY_SECRETS
+      - CONFIGURATION_EXPOSURE
+
+entrypoint_rules:
+  http_api:
+    label_zh: HTTP/API 入口
+    triggers:
+      file_groups:
+        - route_files
+      signal_groups:
+        - route_hits
+    review_focus:
+      - 鉴权是否统一覆盖
+      - 外部输入是否经过校验
+      - 敏感操作是否有权限边界
+
+  frontend_api_call:
+    label_zh: 前端 API 调用入口
+    triggers:
+      signal_groups:
+        - frontend_api_hits
+    review_focus:
+      - 前端持久化敏感信息
+      - API 鉴权边界
+      - 越权调用路径
+
+  async_callback:
+    label_zh: 异步任务、回调与通知入口
+    triggers:
+      keywords:
+        - callback
+        - notify
+        - webhook
+        - consumer
+        - cron
+    review_focus:
+      - 回调验签
+      - 重放风险
+      - 异步任务权限边界
+
+trust_boundary_rules:
+  external_to_server:
+    label_zh: 外部用户 / 客户端 到服务端
+    evidence_from:
+      - http_api
+      - frontend_api_call
+
+  auth_to_business:
+    label_zh: 鉴权认证 到业务授权
+    evidence_from:
+      - identities_and_accounts
+      - business_transactions
+
+  server_to_database:
+    label_zh: 服务端 到数据库 / 持久化层
+    evidence_from:
+      - data_storage
+
+  server_to_file_storage:
+    label_zh: 服务端 到文件 / 对象存储
+    evidence_from:
+      - file_and_object_storage
+
+  server_to_external_callback:
+    label_zh: 服务端 到外部回调 / 第三方系统
+    evidence_from:
+      - async_callback
+
+coverage_dimensions:
+  - route_files
+  - auth_files
+  - data_access_files
+  - file_io_files
+  - high_risk_modules
+  - configs
+
+notes:
+  - Threat model is generated from static project facts and audit map signals only.
+  - It is a security-oriented map, not a vulnerability conclusion.
+  - Coverage map should identify weak areas before AI Deep Review.
